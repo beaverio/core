@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: beaver-core
+
+  datasource:
+    url: jdbc:postgresql://postgres:5432/beavercoredb
+    username: beaveruser
+    password: beaverpass
+  data:
+    redis:
+      host: redis
