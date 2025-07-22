@@ -2,11 +2,6 @@ spring:
   application:
     name: ${SPRING_APPLICATION_NAME}
 
-#  security:
-#    user:
-#      name: connor
-#      password: password
-
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
     username: ${DB_USERNAME}
@@ -15,7 +10,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO}
+      ddl-auto: none
     show-sql: ${JPA_SHOW_SQL}
     properties:
       hibernate:
