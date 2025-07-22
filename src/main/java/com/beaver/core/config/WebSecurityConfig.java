@@ -19,10 +19,12 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity
-                .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(request -> request.anyRequest().authenticated())
-                .formLogin(Customizer.withDefaults())
-                .httpBasic(Customizer.withDefaults());
+                .csrf(AbstractHttpConfigurer::disable) // disables csrf token requirement
+                .authorizeHttpRequests(request -> request
+                                .requestMatchers("/register/**").permitAll()
+                                .anyRequest().authenticated()) // enforces authentication on all request
+                .formLogin(Customizer.withDefaults()) // basic for login in browser
+                .httpBasic(Customizer.withDefaults()); // adds basic http authentication
         return httpSecurity.build();
     }
 
