@@ -6,6 +6,10 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -20,5 +24,20 @@ public class WebSecurityConfig {
                 .formLogin(Customizer.withDefaults())
                 .httpBasic(Customizer.withDefaults());
         return httpSecurity.build();
+    }
+
+    @Bean
+    public UserDetailsService userDetailsService() {
+        UserDetails connor = User.withUsername("connor")
+                .password("{noop}password")
+                .roles("USER")
+                .build();
+
+        UserDetails kyndall = User.withUsername("kyndall")
+                .password("{noop}password")
+                .roles("USER")
+                .build();
+
+        return new InMemoryUserDetailsManager(connor, kyndall);
     }
 }
