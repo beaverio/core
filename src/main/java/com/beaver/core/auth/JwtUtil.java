@@ -1,4 +1,4 @@
-package com.beaver.core.util;
+package com.beaver.core.auth;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

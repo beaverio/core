@@ -1,4 +1,4 @@
-package com.beaver.core.controller;
+package com.beaver.core.temp;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

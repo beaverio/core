@@ -1,7 +1,6 @@
-package com.beaver.core.filter;
+package com.beaver.core.auth;
 
-import com.beaver.core.service.CustomUserDetailsService;
-import com.beaver.core.util.JwtUtil;
+import com.beaver.core.auth.CustomUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;

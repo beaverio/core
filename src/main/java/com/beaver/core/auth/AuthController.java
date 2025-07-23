@@ -1,12 +1,7 @@
-package com.beaver.core.controller;
+package com.beaver.core.auth;
 
-import com.beaver.core.dto.AuthResponse;
-import com.beaver.core.dto.SigninRequest;
-import com.beaver.core.dto.SignupRequest;
-import com.beaver.core.entity.User;
-import com.beaver.core.repository.IUserRepository;
-import com.beaver.core.service.CustomUserDetailsService;
-import com.beaver.core.util.JwtUtil;
+import com.beaver.core.account.User;
+import com.beaver.core.account.IUserRepository;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

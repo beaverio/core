@@ -1,7 +1,7 @@
 package com.beaver.core.integration;
 
-import com.beaver.core.dto.SigninRequest;
-import com.beaver.core.dto.SignupRequest;
+import com.beaver.core.auth.SigninRequest;
+import com.beaver.core.auth.SignupRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
