@@ -1,4 +1,4 @@
-package com.beaver.core.account;
+package com.beaver.core.controller;
 
 import org.springframework.web.bind.annotation.*;
 

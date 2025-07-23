@@ -21,6 +21,6 @@ spring:
       port: ${REDIS_PORT}
 
 jwt:
-  secret: ${JWT_SECRET:myDefaultSecretKeyThatIsAtLeast256BitsLongForHS256AlgorithmToWorkProperlyAndSecurely}
-  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:900000}  # 15 minutes in milliseconds
-  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:86400000}  # 24 hours in milliseconds
+  secret: ${JWT_SECRET:defaultSecretKeyThatIsLongEnoughForHS256Algorithm}
+  access-token-expiration: 900000   # 15 minutes
+  refresh-token-expiration: 86400000 # 24 hours

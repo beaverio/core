@@ -1,7 +1,7 @@
 package com.beaver.core.config;
 
-import com.beaver.core.auth.JwtAuthenticationFilter;
-import com.beaver.core.auth.CustomUserDetailsService;
+import com.beaver.core.filter.JwtAuthenticationFilter;
+import com.beaver.core.service.CustomUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;

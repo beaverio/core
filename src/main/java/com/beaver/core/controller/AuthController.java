@@ -1,7 +1,12 @@
-package com.beaver.core.auth;
+package com.beaver.core.controller;
 
-import com.beaver.core.user.User;
-import com.beaver.core.user.IUserRepository;
+import com.beaver.core.dto.AuthResponse;
+import com.beaver.core.dto.SigninRequest;
+import com.beaver.core.dto.SignupRequest;
+import com.beaver.core.entity.User;
+import com.beaver.core.repository.IUserRepository;
+import com.beaver.core.service.CustomUserDetailsService;
+import com.beaver.core.util.JwtUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -13,7 +18,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/auth")

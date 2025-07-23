@@ -1,6 +1,7 @@
-package com.beaver.core.auth;
+package com.beaver.core.filter;
 
-import com.beaver.core.auth.CustomUserDetailsService;
+import com.beaver.core.util.JwtUtil;
+import com.beaver.core.service.CustomUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -28,26 +29,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
-
-        String jwt = extractJwtFromCookies(request);
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, 
+                                  FilterChain filterChain) throws ServletException, IOException {
+        
+        String token = extractTokenFromCookies(request);
         String username = null;
 
-        if (jwt != null) {
+        if (token != null) {
             try {
-                username = jwtUtil.extractUsername(jwt);
+                username = jwtUtil.extractUsername(token);
             } catch (Exception e) {
                 // Invalid token, continue without authentication
             }
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
 
-            if (jwtUtil.validateToken(jwt, userDetails)) {
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+            if (jwtUtil.validateToken(token, userDetails)) {
+                UsernamePasswordAuthenticationToken authToken = 
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
@@ -56,7 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private String extractJwtFromCookies(HttpServletRequest request) {
+    private String extractTokenFromCookies(HttpServletRequest request) {
         if (request.getCookies() != null) {
             return Arrays.stream(request.getCookies())
                     .filter(cookie -> "access_token".equals(cookie.getName()))

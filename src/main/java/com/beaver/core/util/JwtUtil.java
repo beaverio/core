@@ -1,4 +1,4 @@
-package com.beaver.core.auth;
+package com.beaver.core.util;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -8,7 +8,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,13 +20,13 @@ public class JwtUtil {
     private String secret;
 
     @Value("${jwt.access-token-expiration}")
-    private long accessTokenExpiration;
+    private int accessTokenExpiration;
 
     @Value("${jwt.refresh-token-expiration}")
-    private long refreshTokenExpiration;
+    private int refreshTokenExpiration;
 
     private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        return Keys.hmacShaKeyFor(secret.getBytes());
     }
 
     public String extractUsername(String token) {
@@ -65,7 +64,7 @@ public class JwtUtil {
         return createToken(claims, userDetails.getUsername(), refreshTokenExpiration);
     }
 
-    private String createToken(Map<String, Object> claims, String subject, long expiration) {
+    private String createToken(Map<String, Object> claims, String subject, int expiration) {
         return Jwts.builder()
                 .claims(claims)
                 .subject(subject)
