@@ -1,4 +1,4 @@
-package com.beaver.core.entity;
+package com.beaver.core.user;
 
 import jakarta.persistence.*;
 import lombok.Getter;

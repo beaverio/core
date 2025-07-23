@@ -1,4 +1,4 @@
-package com.beaver.core.dto;
+package com.beaver.core.auth.dto;
 
 public record AuthResponse(String message) {
 }

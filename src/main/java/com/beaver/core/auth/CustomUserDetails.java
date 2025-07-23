@@ -1,6 +1,6 @@
-package com.beaver.core;
+package com.beaver.core.auth;
 
-import com.beaver.core.entity.User;
+import com.beaver.core.user.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
