@@ -10,7 +10,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: none
     show-sql: true
     properties:
       hibernate:
@@ -24,6 +24,6 @@ spring:
     enabled: false
 
 jwt:
-  secret: myDevSecretKeyThatIsAtLeast256BitsLongForHS256AlgorithmToWorkProperlyAndSecurely
+  secret: ${JWT_SECRET}
   access-token-expiration: 900000   # 15 minutes
   refresh-token-expiration: 86400000 # 24 hours
