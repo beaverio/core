@@ -1,7 +1,7 @@
 package com.beaver.core.auth;
 
-import com.beaver.core.account.User;
-import com.beaver.core.account.IUserRepository;
+import com.beaver.core.user.User;
+import com.beaver.core.user.IUserRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

@@ -1,4 +1,4 @@
-package com.beaver.core.account;
+package com.beaver.core.user;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
