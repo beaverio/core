@@ -13,6 +13,7 @@ public class UserDto extends BaseDto {
 
     private final String email;
     private final boolean isActive;
+    private final String name;
 
     public static UserDto fromEntity(User user) {
         return UserDto.builder()
@@ -21,16 +22,7 @@ public class UserDto extends BaseDto {
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .isActive(user.isActive())
-                .build();
-    }
-
-    public User toEntity() {
-        return User.builder()
-                .id(this.getId())
-                .email(this.getEmail())
-                .createdAt(this.getCreatedAt())
-                .updatedAt(this.getUpdatedAt())
-                .isActive(this.isActive())
+                .name(user.getName())
                 .build();
     }
 }

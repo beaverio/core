@@ -1,7 +1,8 @@
 package com.beaver.core.user;
 
-import com.beaver.core.user.dto.UpdateSelfDto;
+import com.beaver.core.user.dto.UpdateSelf;
 import com.beaver.core.user.dto.UserDto;
+import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -19,16 +20,17 @@ public class UserController {
     @GetMapping(value = "/self", produces = MediaType.APPLICATION_JSON_VALUE)
     public UserDto getSelf(Authentication authentication) {
         String email = authentication.getName();
-
-        return userService.findByEmail(email)
-                .map(UserDto::fromEntity)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userService.getUserSelf(email);
+        return UserDto.fromEntity(user);
     }
 
-//    @PatchMapping(value = "/self", produces = MediaType.APPLICATION_JSON_VALUE)
-//    public UserDto updateSelf(
-//            Authentication authentication,
-//            @RequestBody UpdateSelfDto updateProfileRequest) {
-//
-//    }
+    @PatchMapping(value = "/self", produces = MediaType.APPLICATION_JSON_VALUE)
+    public UserDto updateSelf(
+            Authentication authentication,
+            @Valid @RequestBody UpdateSelf updateProfileRequest)
+    {
+        String email = authentication.getName();
+        User user = userService.updateSelf(email, updateProfileRequest);
+        return UserDto.fromEntity(user);
+    }
 }
