@@ -20,5 +20,6 @@ public class CoreApplication {
         new SpringApplicationBuilder(CoreApplication.class)
                 .properties("spring.profiles.active=" + System.getProperty("SPRING_PROFILES_ACTIVE", "default"))
                 .run(args);
+        SpringApplication.run(CoreApplication.class, args);
     }
 }
