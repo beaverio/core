@@ -9,6 +9,7 @@ import com.beaver.core.user.UserService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -138,42 +139,9 @@ public class AuthController {
 
     @PatchMapping("/credentials")
     public ResponseEntity<AuthResponse> updateCredentials(Authentication authentication,
-                                                          @RequestBody UpdateCredentials request) {
-        String currentEmail = authentication.getName();
+                                                         @Valid @RequestBody UpdateCredentials request) {
 
-        // Get current user
-        User currentUser = userService.findByEmail(currentEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // Require current password for credential updates
-        if (request.currentPassword() == null || request.currentPassword().isEmpty()) {
-            return ResponseEntity.badRequest()
-                    .body(new AuthResponse("Current password is required"));
-        }
-
-        // Verify current password
-        if (!passwordEncoder.matches(request.currentPassword(), currentUser.getPassword())) {
-            return ResponseEntity.status(401)
-                    .body(new AuthResponse("Invalid current password"));
-        }
-
-        // Update email if provided
-        if (request.email() != null && !request.email().equals(currentEmail)) {
-            // Check if new email already exists
-            if (userService.findByEmail(request.email()).isPresent()) {
-                return ResponseEntity.badRequest()
-                        .body(new AuthResponse("Email already exists"));
-            }
-            currentUser.setEmail(request.email());
-        }
-
-        // Update password if provided
-        if (request.newPassword() != null && !request.newPassword().isEmpty()) {
-            currentUser.setPassword(passwordEncoder.encode(request.newPassword()));
-        }
-
-        // Save updated user
-        userService.updateUser(currentUser);
+        System.out.println("Updating credentials: " + request.toString());
 
         return ResponseEntity.ok(new AuthResponse("Credentials updated successfully"));
     }

@@ -1,6 +1,8 @@
 package com.beaver.core.auth.validation;
 
 import com.beaver.core.auth.dto.UpdateCredentials;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
