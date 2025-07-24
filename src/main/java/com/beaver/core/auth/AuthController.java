@@ -3,6 +3,7 @@ package com.beaver.core.auth;
 import com.beaver.core.auth.dto.AuthResponse;
 import com.beaver.core.auth.dto.SigninRequest;
 import com.beaver.core.auth.dto.SignupRequest;
+import com.beaver.core.auth.dto.UpdateCredentials;
 import com.beaver.core.user.User;
 import com.beaver.core.user.UserService;
 import jakarta.servlet.http.Cookie;
@@ -11,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -53,7 +55,7 @@ public class AuthController {
                     .password(passwordEncoder.encode(signupRequest.password()))
                     .active(true)
                     .build();
-            userService.saveUser(user);
+            userService.createUser(user);
 
             return ResponseEntity.ok(new AuthResponse("User registered successfully"));
         } catch (Exception e) {
@@ -132,6 +134,48 @@ public class AuthController {
         // Clear cookies
         clearAuthCookies(response);
         return ResponseEntity.ok(new AuthResponse("Logout successful"));
+    }
+
+    @PatchMapping("/credentials")
+    public ResponseEntity<AuthResponse> updateCredentials(Authentication authentication,
+                                                          @RequestBody UpdateCredentials request) {
+        String currentEmail = authentication.getName();
+
+        // Get current user
+        User currentUser = userService.findByEmail(currentEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Require current password for credential updates
+        if (request.currentPassword() == null || request.currentPassword().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(new AuthResponse("Current password is required"));
+        }
+
+        // Verify current password
+        if (!passwordEncoder.matches(request.currentPassword(), currentUser.getPassword())) {
+            return ResponseEntity.status(401)
+                    .body(new AuthResponse("Invalid current password"));
+        }
+
+        // Update email if provided
+        if (request.email() != null && !request.email().equals(currentEmail)) {
+            // Check if new email already exists
+            if (userService.findByEmail(request.email()).isPresent()) {
+                return ResponseEntity.badRequest()
+                        .body(new AuthResponse("Email already exists"));
+            }
+            currentUser.setEmail(request.email());
+        }
+
+        // Update password if provided
+        if (request.newPassword() != null && !request.newPassword().isEmpty()) {
+            currentUser.setPassword(passwordEncoder.encode(request.newPassword()));
+        }
+
+        // Save updated user
+        userService.updateUser(currentUser);
+
+        return ResponseEntity.ok(new AuthResponse("Credentials updated successfully"));
     }
 
     private void setAuthCookies(HttpServletResponse response, String accessToken, String refreshToken) {

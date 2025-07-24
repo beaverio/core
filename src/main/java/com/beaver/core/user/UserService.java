@@ -1,5 +1,6 @@
 package com.beaver.core.user;
 
+import com.beaver.core.user.dto.UpdateSelfDto;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -17,7 +18,11 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
-    public void saveUser(User user) {
+    public void createUser(User user) {
         userRepository.save(user);
     }
+
+//    public User updateUser(UpdateSelfDto user) {
+//        return userRepository.save(user);
+//    }
 }
