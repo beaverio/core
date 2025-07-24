@@ -10,6 +10,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Arrays;
 import java.util.Optional;
 
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -30,16 +32,6 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;
-
-    public AuthController(UserService userService, PasswordEncoder passwordEncoder,
-                         AuthenticationManager authenticationManager, JwtUtil jwtUtil,
-                         CustomUserDetailsService userDetailsService) {
-        this.userService = userService;
-        this.passwordEncoder = passwordEncoder;
-        this.authenticationManager = authenticationManager;
-        this.jwtUtil = jwtUtil;
-        this.userDetailsService = userDetailsService;
-    }
 
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest signupRequest) {
@@ -52,35 +44,32 @@ public class AuthController {
                     .build();
             userService.createUser(user);
 
-            return ResponseEntity.ok(new AuthResponse("User registered successfully"));
+            return ResponseEntity.ok(AuthResponse.builder()
+                            .message("User registered successfully")
+                            .build()
+            );
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body(new AuthResponse("Registration failed: " + e.getMessage()));
+                    .body(AuthResponse.builder().message("Registration failed: " + e.getMessage()).build());
         }
     }
 
     @PostMapping("/signin")
-    public ResponseEntity<AuthResponse> signin(@RequestBody SigninRequest signinRequest, 
+    public ResponseEntity<AuthResponse> signin(@Valid @RequestBody SigninRequest signinRequest,
                                              HttpServletResponse response) {
         try {
-            System.out.println("Attempting signin for email: " + signinRequest.email());
-
             // Check if user exists first
             Optional<User> user = userService.findByEmail(signinRequest.email());
             if (user.isEmpty()) {
                 System.out.println("User not found for email: " + signinRequest.email());
                 return ResponseEntity.badRequest()
-                        .body(new AuthResponse("Invalid credentials"));
+                        .body(AuthResponse.builder().message("Invalid credentials").build());
             }
-
-            System.out.println("User found, attempting authentication...");
 
             // Authenticate user
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(signinRequest.email(), signinRequest.password())
             );
-
-            System.out.println("Authentication successful, generating tokens...");
 
             UserDetails userDetails = userDetailsService.loadUserByUsername(signinRequest.email());
             String accessToken = jwtUtil.generateAccessToken(userDetails);
@@ -89,13 +78,13 @@ public class AuthController {
             // Set HTTP-only cookies
             setAuthCookies(response, accessToken, refreshToken);
 
-            return ResponseEntity.ok(new AuthResponse("Login successful"));
+            return ResponseEntity.ok(AuthResponse.builder().message("Login successful").build());
         } catch (Exception e) {
             // Log the actual error for debugging
             System.err.println("Signin error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
-            e.printStackTrace();
+            e.printStackTrace(); // TODO setup better logging
             return ResponseEntity.badRequest()
-                    .body(new AuthResponse("Invalid credentials"));
+                    .body(AuthResponse.builder().message("Invalid credentials").build());
         }
     }
 
@@ -106,7 +95,7 @@ public class AuthController {
             
             if (refreshToken == null || !jwtUtil.validateToken(refreshToken)) {
                 return ResponseEntity.badRequest()
-                        .body(new AuthResponse("Invalid refresh token"));
+                        .body(AuthResponse.builder().message("Invalid refresh token").build());
             }
 
             String username = jwtUtil.extractUsername(refreshToken);
@@ -117,10 +106,10 @@ public class AuthController {
 
             setAuthCookies(response, newAccessToken, newRefreshToken);
 
-            return ResponseEntity.ok(new AuthResponse("Tokens refreshed successfully"));
+            return ResponseEntity.ok(AuthResponse.builder().message("Tokens refreshed successfully").build());
         } catch (Exception e) {
             return ResponseEntity.badRequest()
-                    .body(new AuthResponse("Token refresh failed"));
+                    .body(AuthResponse.builder().message("Token refresh failed").build());
         }
     }
 
@@ -128,16 +117,14 @@ public class AuthController {
     public ResponseEntity<AuthResponse> logout(HttpServletResponse response) {
         // Clear cookies
         clearAuthCookies(response);
-        return ResponseEntity.ok(new AuthResponse("Logout successful"));
+        return ResponseEntity.ok(AuthResponse.builder().message("Logout successful").build());
     }
 
     @PatchMapping("/credentials")
     public ResponseEntity<AuthResponse> updateCredentials(Authentication authentication,
                                                          @Valid @RequestBody UpdateCredentials request) {
 
-        System.out.println("Updating credentials: " + request.toString());
-
-        return ResponseEntity.ok(new AuthResponse("Credentials updated successfully"));
+        return ResponseEntity.ok(AuthResponse.builder().message("Credentials updated successfully").build());
     }
 
     private void setAuthCookies(HttpServletResponse response, String accessToken, String refreshToken) {
