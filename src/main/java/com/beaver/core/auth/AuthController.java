@@ -42,7 +42,7 @@ public class AuthController {
             User user = User.builder()
                     .email(signupRequest.email())
                     .password(passwordEncoder.encode(signupRequest.password()))
-                    .active(true)
+                    .isActive(true)
                     .build();
             userService.saveUser(user);
 

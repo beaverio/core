@@ -1,36 +1,36 @@
 package com.beaver.core.user.dto;
 
+import com.beaver.core.common.BaseDto;
 import com.beaver.core.user.User;
-import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.experimental.SuperBuilder;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
+@Data
+@SuperBuilder
+@EqualsAndHashCode(callSuper = true)
+public class UserDto extends BaseDto {
 
-@Builder
-public record UserDto(
-        UUID id,
-        String email,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt,
-        boolean active
-) {
+    private final String email;
+    private final boolean isActive;
+
     public static UserDto fromEntity(User user) {
         return UserDto.builder()
                 .id(user.getId())
                 .email(user.getEmail())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
-                .active(user.isActive())
+                .isActive(user.isActive())
                 .build();
     }
 
     public User toEntity() {
         return User.builder()
-                .id(this.id)
-                .email(this.email)
-                .createdAt(this.createdAt)
-                .updatedAt(this.updatedAt)
-                .active(this.active)
+                .id(this.getId())
+                .email(this.getEmail())
+                .createdAt(this.getCreatedAt())
+                .updatedAt(this.getUpdatedAt())
+                .isActive(this.isActive())
                 .build();
     }
 }
