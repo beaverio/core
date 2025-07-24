@@ -4,6 +4,7 @@ import com.beaver.core.user.dto.UpdateSelf;
 import com.beaver.core.user.dto.UserDto;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,19 +19,26 @@ public class UserController {
     }
 
     @GetMapping(value = "/self", produces = MediaType.APPLICATION_JSON_VALUE)
-    public UserDto getSelf(Authentication authentication) {
+    public ResponseEntity<UserDto> getSelf(Authentication authentication) {
         String email = authentication.getName();
         User user = userService.getUserSelf(email);
-        return UserDto.fromEntity(user);
+        return ResponseEntity.ok(UserDto.fromEntity(user));
     }
 
     @PatchMapping(value = "/self", produces = MediaType.APPLICATION_JSON_VALUE)
-    public UserDto updateSelf(
+    public ResponseEntity<UserDto> updateSelf(
             Authentication authentication,
             @Valid @RequestBody UpdateSelf updateProfileRequest)
     {
         String email = authentication.getName();
         User user = userService.updateSelf(email, updateProfileRequest);
-        return UserDto.fromEntity(user);
+        return ResponseEntity.ok(UserDto.fromEntity(user));
+    }
+
+    @DeleteMapping(value = "/self")
+    public ResponseEntity<Void> deleteSelf(Authentication authentication) {
+        String email = authentication.getName();
+        userService.deleteUser(email);
+        return ResponseEntity.noContent().build();
     }
 }

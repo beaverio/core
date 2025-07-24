@@ -34,4 +34,11 @@ public class UserService {
         userMapper.mapToUser(updateRequest, existingUser);
         return userRepository.save(existingUser);
     }
+
+    public void deleteUser(String email) {
+        User existingUser = findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        userRepository.delete(existingUser);
+    }
 }
