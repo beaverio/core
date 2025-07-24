@@ -4,6 +4,7 @@ import com.beaver.core.auth.validation.ValidUpdateCredentials;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Builder;
+import lombok.Getter;
 
 @Builder
 @ValidUpdateCredentials

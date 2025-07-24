@@ -1,18 +1,15 @@
 package com.beaver.core.user;
 
-import com.beaver.core.user.dto.UpdateSelfDto;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
+@RequiredArgsConstructor
 @Service
 public class UserService {
 
     private final IUserRepository userRepository;
-
-    public UserService(IUserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
 
     public Optional<User> findByEmail(String email) {
         return userRepository.findByEmail(email);
