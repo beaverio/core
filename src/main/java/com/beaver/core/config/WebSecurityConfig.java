@@ -2,6 +2,7 @@ package com.beaver.core.config;
 
 import com.beaver.core.auth.JwtAuthenticationFilter;
 import com.beaver.core.auth.CustomUserDetailsService;
+import com.beaver.core.auth.RateLimitingFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -24,11 +25,14 @@ public class WebSecurityConfig {
 
     private final CustomUserDetailsService customUserDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RateLimitingFilter rateLimitingFilter;
 
     public WebSecurityConfig(CustomUserDetailsService customUserDetailsService, 
-                           JwtAuthenticationFilter jwtAuthenticationFilter) {
+                           JwtAuthenticationFilter jwtAuthenticationFilter,
+                           RateLimitingFilter rateLimitingFilter) {
         this.customUserDetailsService = customUserDetailsService;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.rateLimitingFilter = rateLimitingFilter;
     }
 
     @Bean
@@ -45,6 +49,7 @@ public class WebSecurityConfig {
                         .permitAll()
                         .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())
+                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return httpSecurity.build();
