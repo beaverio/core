@@ -42,14 +42,8 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<AuthResponse> signup(@RequestBody SignupRequest signupRequest) {
+    public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest signupRequest) {
         try {
-            // Check if user already exists
-            if (userService.findByEmail(signupRequest.email()).isPresent()) {
-                return ResponseEntity.badRequest()
-                        .body(new AuthResponse("User with this email already exists"));
-            }
-
             // Create new user
             User user = User.builder()
                     .email(signupRequest.email())

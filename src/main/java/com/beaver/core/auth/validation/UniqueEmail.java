@@ -9,8 +9,8 @@ import java.lang.annotation.Target;
 
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@Constraint(validatedBy = UpdateCredentialsValidator.class)
-public @interface ValidUpdateCredentials {
+@Constraint(validatedBy = UniqueEmailValidator.class)
+public @interface UniqueEmail {
     String message() default "Invalid credentials update request";
     Class<?>[] groups() default {};
     Class<? extends Payload>[] payload() default {};
