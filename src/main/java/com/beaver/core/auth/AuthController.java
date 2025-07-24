@@ -47,9 +47,11 @@ public class AuthController {
             }
 
             // Create new user
-            User user = new User();
-            user.setEmail(signupRequest.email());
-            user.setPassword(passwordEncoder.encode(signupRequest.password()));
+            User user = User.builder()
+                    .email(signupRequest.email())
+                    .password(passwordEncoder.encode(signupRequest.password()))
+                    .active(true)
+                    .build();
             userRepository.save(user);
 
             return ResponseEntity.ok(new AuthResponse("User registered successfully"));
@@ -63,10 +65,24 @@ public class AuthController {
     public ResponseEntity<AuthResponse> signin(@RequestBody SigninRequest signinRequest, 
                                              HttpServletResponse response) {
         try {
+            System.out.println("Attempting signin for email: " + signinRequest.email());
+
+            // Check if user exists first
+            User user = userRepository.findByEmail(signinRequest.email());
+            if (user == null) {
+                System.out.println("User not found for email: " + signinRequest.email());
+                return ResponseEntity.badRequest()
+                        .body(new AuthResponse("Invalid credentials"));
+            }
+
+            System.out.println("User found, attempting authentication...");
+
             // Authenticate user
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(signinRequest.email(), signinRequest.password())
             );
+
+            System.out.println("Authentication successful, generating tokens...");
 
             UserDetails userDetails = userDetailsService.loadUserByUsername(signinRequest.email());
             String accessToken = jwtUtil.generateAccessToken(userDetails);
@@ -77,6 +93,9 @@ public class AuthController {
 
             return ResponseEntity.ok(new AuthResponse("Login successful"));
         } catch (Exception e) {
+            // Log the actual error for debugging
+            System.err.println("Signin error: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.badRequest()
                     .body(new AuthResponse("Invalid credentials"));
         }
