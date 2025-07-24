@@ -1,31 +1,24 @@
 package com.beaver.core.auth;
 
-import com.beaver.core.user.User;
-import com.beaver.core.user.IUserRepository;
+import com.beaver.core.user.UserService;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.Objects;
-
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
-    private final IUserRepository userRepository;
+    private final UserService userService;
 
-    public CustomUserDetailsService(IUserRepository userRepository) {
-        this.userRepository = userRepository;
+    public CustomUserDetailsService(UserService userService) {
+        this.userService = userService;
     }
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email);
-
-        if (Objects.isNull(user)) {
-            throw new UsernameNotFoundException("Email not found");
-        }
-
-        return new CustomUserDetails(user);
+        return userService.findByEmail(email)
+                .map(CustomUserDetails::new)
+                .orElseThrow(() -> new UsernameNotFoundException("Email not found"));
     }
 }

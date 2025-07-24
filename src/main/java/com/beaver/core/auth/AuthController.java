@@ -4,7 +4,7 @@ import com.beaver.core.auth.dto.AuthResponse;
 import com.beaver.core.auth.dto.SigninRequest;
 import com.beaver.core.auth.dto.SignupRequest;
 import com.beaver.core.user.User;
-import com.beaver.core.user.IUserRepository;
+import com.beaver.core.user.UserService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -16,21 +16,22 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
 
-    private final IUserRepository userRepository;
+    private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;
 
-    public AuthController(IUserRepository userRepository, PasswordEncoder passwordEncoder,
+    public AuthController(UserService userService, PasswordEncoder passwordEncoder,
                          AuthenticationManager authenticationManager, JwtUtil jwtUtil,
                          CustomUserDetailsService userDetailsService) {
-        this.userRepository = userRepository;
+        this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
@@ -41,7 +42,7 @@ public class AuthController {
     public ResponseEntity<AuthResponse> signup(@RequestBody SignupRequest signupRequest) {
         try {
             // Check if user already exists
-            if (userRepository.findByEmail(signupRequest.email()) != null) {
+            if (userService.findByEmail(signupRequest.email()).isPresent()) {
                 return ResponseEntity.badRequest()
                         .body(new AuthResponse("User with this email already exists"));
             }
@@ -52,7 +53,7 @@ public class AuthController {
                     .password(passwordEncoder.encode(signupRequest.password()))
                     .active(true)
                     .build();
-            userRepository.save(user);
+            userService.saveUser(user);
 
             return ResponseEntity.ok(new AuthResponse("User registered successfully"));
         } catch (Exception e) {
@@ -68,8 +69,8 @@ public class AuthController {
             System.out.println("Attempting signin for email: " + signinRequest.email());
 
             // Check if user exists first
-            User user = userRepository.findByEmail(signinRequest.email());
-            if (user == null) {
+            Optional<User> user = userService.findByEmail(signinRequest.email());
+            if (user.isEmpty()) {
                 System.out.println("User not found for email: " + signinRequest.email());
                 return ResponseEntity.badRequest()
                         .body(new AuthResponse("Invalid credentials"));
@@ -136,15 +137,15 @@ public class AuthController {
     private void setAuthCookies(HttpServletResponse response, String accessToken, String refreshToken) {
         Cookie accessCookie = new Cookie("access_token", accessToken);
         accessCookie.setHttpOnly(true);
-        accessCookie.setSecure(false); // Set to true in production with HTTPS
+        accessCookie.setSecure(true);
         accessCookie.setPath("/");
-        accessCookie.setMaxAge(15 * 60); // 15 minutes
+        accessCookie.setMaxAge(15 * 60);
 
         Cookie refreshCookie = new Cookie("refresh_token", refreshToken);
         refreshCookie.setHttpOnly(true);
-        refreshCookie.setSecure(false); // Set to true in production with HTTPS
+        refreshCookie.setSecure(true); // Set to true in production with HTTPS
         refreshCookie.setPath("/");
-        refreshCookie.setMaxAge(24 * 60 * 60); // 24 hours
+        refreshCookie.setMaxAge(7 * 24 * 60 * 60);
 
         response.addCookie(accessCookie);
         response.addCookie(refreshCookie);
