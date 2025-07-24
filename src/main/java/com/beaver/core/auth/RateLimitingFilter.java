@@ -2,7 +2,6 @@ package com.beaver.core.auth;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Bucket4j;
 import io.github.bucket4j.Refill;
 import org.springframework.stereotype.Component;
 
@@ -14,7 +13,7 @@ import java.time.Duration;
 @Component
 public class RateLimitingFilter implements Filter {
 
-    private final Bucket bucket = Bucket4j.builder()
+    private final Bucket bucket = Bucket.builder()
             .addLimit(Bandwidth.classic(100, Refill.intervally(100, Duration.ofMinutes(1))))
             .build();
 
