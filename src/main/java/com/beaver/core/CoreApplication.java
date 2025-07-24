@@ -17,9 +17,11 @@ public class CoreApplication {
             System.setProperty(entry.getKey(), entry.getValue())
         );
 
+        String activeProfile = System.getProperty("SPRING_PROFILES_ACTIVE", "local");
+        System.setProperty("spring.profiles.active", activeProfile);
+
         new SpringApplicationBuilder(CoreApplication.class)
-                .properties("spring.profiles.active=" + System.getProperty("SPRING_PROFILES_ACTIVE", "default"))
+                .profiles(activeProfile)
                 .run(args);
-        SpringApplication.run(CoreApplication.class, args);
     }
 }
