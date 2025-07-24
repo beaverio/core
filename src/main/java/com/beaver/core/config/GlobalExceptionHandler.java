@@ -17,7 +17,11 @@ public class GlobalExceptionHandler {
         String errorMessage = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
-                .map(error -> error.getDefaultMessage())
+                .map(error -> {
+                    String template = error.getDefaultMessage();
+                    String fieldName = error.getField();
+                    return template.replace("{field}", fieldName);
+                })
                 .collect(Collectors.joining(", "));
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
