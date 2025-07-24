@@ -1,12 +1,10 @@
 package com.beaver.core.auth.dto;
 
-import com.beaver.core.auth.validation.UniqueEmail;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Builder;
 
 @Builder
-@UniqueEmail
 public record UpdateCredentials(
         @NotBlank(message = "`{field}` is required")
         @Email(message = "Invalid `{field}` format")

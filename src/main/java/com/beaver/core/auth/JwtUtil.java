@@ -3,6 +3,7 @@ package com.beaver.core.auth;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
@@ -19,9 +20,11 @@ public class JwtUtil {
     @Value("${jwt.secret}")
     private String secret;
 
+    @Getter
     @Value("${jwt.access-token-expiration}")
     private int accessTokenExpiration;
 
+    @Getter
     @Value("${jwt.refresh-token-expiration}")
     private int refreshTokenExpiration;
 

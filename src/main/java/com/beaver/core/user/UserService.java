@@ -15,11 +15,7 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
-    public void createUser(User user) {
+    public void saveUser(User user) {
         userRepository.save(user);
     }
-
-//    public User updateUser(UpdateSelfDto user) {
-//        return userRepository.save(user);
-//    }
 }

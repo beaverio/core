@@ -14,6 +14,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Set;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -29,36 +30,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.startsWith("/auth/") || path.startsWith("/temp/");
+        // Manually listing out because /auth includes authenticated endpoints
+        Set<String> publicPaths = Set.of(
+                "/auth/signup",
+                "/auth/signin",
+                "/auth/refresh",
+                "/auth/logout"
+        );
+        return publicPaths.contains(path);
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, 
-                                  FilterChain filterChain) throws ServletException, IOException {
-        
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
+
+        System.out.println("JWT Filter - Path: " + request.getRequestURI());
+
         String token = extractTokenFromCookies(request);
-        String username = null;
+        System.out.println("JWT Filter - Token found: " + (token != null));
 
-        if (token != null) {
-            try {
-                username = jwtUtil.extractUsername(token);
-            } catch (Exception e) {
-                // Invalid token, continue without authentication
-            }
-        }
+        if (token != null && jwtUtil.validateToken(token)) {
+            String username = jwtUtil.extractUsername(token);
+            System.out.println("JWT Filter - Username: " + username);
 
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            try {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-
-                if (jwtUtil.validateToken(token, userDetails)) {
-                    UsernamePasswordAuthenticationToken authToken =
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                }
-            } catch (Exception e) {
-                // User not found or other authentication error, continue without authentication
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+                System.out.println("JWT Filter - Authentication set for: " + username);
             }
         }
 

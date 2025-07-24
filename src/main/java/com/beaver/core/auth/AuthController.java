@@ -11,7 +11,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -42,7 +44,7 @@ public class AuthController {
                     .password(passwordEncoder.encode(signupRequest.password()))
                     .active(true)
                     .build();
-            userService.createUser(user);
+            userService.saveUser(user);
 
             return ResponseEntity.ok(AuthResponse.builder()
                             .message("User registered successfully")
@@ -55,8 +57,10 @@ public class AuthController {
     }
 
     @PostMapping("/signin")
-    public ResponseEntity<AuthResponse> signin(@Valid @RequestBody SigninRequest signinRequest,
-                                             HttpServletResponse response) {
+    public ResponseEntity<AuthResponse> signin(
+            @Valid @RequestBody SigninRequest signinRequest,
+            HttpServletResponse response)
+    {
         try {
             // Check if user exists first
             Optional<User> user = userService.findByEmail(signinRequest.email());
@@ -115,14 +119,33 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<AuthResponse> logout(HttpServletResponse response) {
-        // Clear cookies
         clearAuthCookies(response);
         return ResponseEntity.ok(AuthResponse.builder().message("Logout successful").build());
     }
 
+    @PreAuthorize("isAuthenticated()")
     @PatchMapping("/credentials")
-    public ResponseEntity<AuthResponse> updateCredentials(Authentication authentication,
-                                                         @Valid @RequestBody UpdateCredentials request) {
+    public ResponseEntity<AuthResponse> updateCredentials(
+            Authentication authentication,
+            @Valid @RequestBody UpdateCredentials request)
+    {
+        String currentEmail = authentication.getName();
+        if (!currentEmail.equalsIgnoreCase(request.email())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(AuthResponse.builder().message("Forbidden operation").build());
+        }
+
+        User currentUser = userService.findByEmail(currentEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!passwordEncoder.matches(request.password(), currentUser.getPassword())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(AuthResponse.builder().message("Invalid current password").build());
+        }
+
+        currentUser.setEmail(request.email());
+        currentUser.setPassword(passwordEncoder.encode(request.newPassword()));
+        userService.saveUser(currentUser);
 
         return ResponseEntity.ok(AuthResponse.builder().message("Credentials updated successfully").build());
     }
@@ -132,13 +155,13 @@ public class AuthController {
         accessCookie.setHttpOnly(true);
         accessCookie.setSecure(true);
         accessCookie.setPath("/");
-        accessCookie.setMaxAge(15 * 60);
+        accessCookie.setMaxAge(jwtUtil.getAccessTokenExpiration());
 
         Cookie refreshCookie = new Cookie("refresh_token", refreshToken);
         refreshCookie.setHttpOnly(true);
-        refreshCookie.setSecure(true); // Set to true in production with HTTPS
+        refreshCookie.setSecure(true);
         refreshCookie.setPath("/");
-        refreshCookie.setMaxAge(7 * 24 * 60 * 60);
+        refreshCookie.setMaxAge(jwtUtil.getRefreshTokenExpiration());
 
         response.addCookie(accessCookie);
         response.addCookie(refreshCookie);
