@@ -1,8 +1,8 @@
 package com.beaver.core;
 
 import io.github.cdimascio.dotenv.Dotenv;
-import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 
 @SpringBootApplication
 public class CoreApplication {
@@ -17,6 +17,11 @@ public class CoreApplication {
             System.setProperty(entry.getKey(), entry.getValue())
         );
 
-        SpringApplication.run(CoreApplication.class, args);
+        String activeProfile = System.getProperty("SPRING_PROFILES_ACTIVE", "local");
+        System.setProperty("spring.profiles.active", activeProfile);
+
+        new SpringApplicationBuilder(CoreApplication.class)
+                .profiles(activeProfile)
+                .run(args);
     }
 }

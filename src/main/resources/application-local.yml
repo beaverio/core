@@ -1,11 +1,11 @@
 spring:
   application:
-    name: beaver-core-prod
+    name: beaver-core-local
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://localhost:5432/beavercoredb
+    username: beaveruser
+    password: beaverpassword
     driver-class-name: org.postgresql.Driver
 
   jpa:
