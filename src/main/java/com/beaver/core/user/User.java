@@ -2,6 +2,7 @@ package com.beaver.core.user;
 
 import com.beaver.core.common.BaseEntity;
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -23,6 +24,7 @@ public class User extends BaseEntity {
     @Column(name = "password_hash", nullable = false)
     private String password;
 
+    @Builder.Default
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
 

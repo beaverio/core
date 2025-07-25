@@ -8,5 +8,5 @@ import com.beaver.core.user.dto.UpdateSelf;
 
 @Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface IUserMapper {
-    void mapToUser(UpdateSelf dto, @MappingTarget User user);
+    void mapToEntity(UpdateSelf dto, @MappingTarget User user);
 }

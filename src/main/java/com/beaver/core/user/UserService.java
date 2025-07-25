@@ -31,7 +31,7 @@ public class UserService {
         User existingUser = findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        userMapper.mapToUser(updateRequest, existingUser);
+        userMapper.mapToEntity(updateRequest, existingUser);
         return userRepository.save(existingUser);
     }
 
