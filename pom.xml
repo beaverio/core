@@ -26,6 +26,7 @@
 			<artifactId>spring-cloud-starter-gateway</artifactId>
 		</dependency>
 
+
 		<!-- JWT for token generation and validation -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>

@@ -19,7 +19,7 @@ public class UserServiceClient {
     @Value("${user-service.url}")
     private String userServiceBaseUrl;
 
-    @Value("{gateway.secret}")
+    @Value("${gateway.secret}")
     private String gatewaySecret;
 
     private WebClient getUserServiceWebClient() {
@@ -32,14 +32,19 @@ public class UserServiceClient {
                 .password(password)
                 .build();
 
+        log.info("Making credential validation request to user-service for email: {}", email);
+
         return getUserServiceWebClient()
                 .post()
-                .uri("/users/internal/validate-credentials")
+                .uri("/users/internal/validate-credentials")  // Added /users prefix for context path
                 .header("X-Service-Secret", gatewaySecret)
                 .header("X-Source", "gateway")
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(UserCredentialsResponse.class)
+                .doOnNext(response -> log.info("Received validation response: isValid={}, userId={}",
+                        response.isValid(), response.userId()))
+                .doOnError(error -> log.error("Credential validation request failed: {}", error.getMessage(), error))
                 .onErrorReturn(UserCredentialsResponse.invalid());
     }
 
@@ -52,12 +57,16 @@ public class UserServiceClient {
 
         return getUserServiceWebClient()
                 .post()
-                .uri("/users/internal/users")
+                .uri("/users/internal/users")  // Added /users prefix for context path
                 .header("X-Service-Secret", gatewaySecret)
                 .header("X-Source", "gateway")
                 .bodyValue(request)
                 .retrieve()
-                .bodyToMono(Void.class);
+                .bodyToMono(Void.class)
+                .doOnError(error -> {
+                    log.error("Failed to create user in user-service. Email: {}, Error: {}",
+                             email, error.getMessage(), error);
+                });
     }
 
     public record UserCredentialsResponse(

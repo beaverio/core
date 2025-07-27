@@ -4,6 +4,7 @@ import com.beaver.core.client.UserServiceClient;
 import com.beaver.core.config.JwtConfig;
 import com.beaver.core.dto.*;
 import com.beaver.core.service.JwtService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,7 @@ import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/auth")
+@Slf4j
 public class AuthController {
 
     private final UserServiceClient userServiceClient;
@@ -53,16 +55,50 @@ public class AuthController {
 
     @PostMapping("/signup")
     public Mono<ResponseEntity<AuthResponse>> signup(@RequestBody SignupRequest request) {
+        log.info("Starting signup process for email: {}", request.email());
+
         return userServiceClient.createUser(request.email(), request.password(), request.name())
-                .then(userServiceClient.validateCredentials(request.email(), request.password()))
-                .flatMap(userResponse -> createAuthResponse(
-                        User.builder()
-                            .id(userResponse.userId())
-                            .email(userResponse.email())
-                            .name(userResponse.name()).build(),
-                        "Signup successful"))
-                .onErrorReturn(ResponseEntity.status(409)
-                        .body(AuthResponse.builder().message("User already exists").build()));
+                .doOnSuccess(v -> log.info("User created successfully for email: {}", request.email()))
+                .doOnError(error -> log.error("User creation failed for email: {}", request.email(), error))
+                .then(Mono.defer(() -> {
+                    log.info("Proceeding to validate credentials for newly created user: {}", request.email());
+                    return userServiceClient.validateCredentials(request.email(), request.password())
+                            .doOnNext(userResponse -> {
+                                log.info("Credential validation result for {}: isValid={}, userId={}",
+                                        request.email(), userResponse.isValid(), userResponse.userId());
+                            })
+                            .doOnError(error -> log.error("Credential validation failed for email: {}", request.email(), error))
+                            .flatMap(userResponse -> {
+                                if (userResponse.isValid()) {
+                                    log.info("Creating auth response for user: {}", request.email());
+                                    return createAuthResponse(
+                                            User.builder()
+                                                .id(userResponse.userId())
+                                                .email(userResponse.email())
+                                                .name(userResponse.name()).build(),
+                                            "Signup successful");
+                                } else {
+                                    log.warn("Credential validation returned invalid for email: {} (userId: {}, isActive: {})",
+                                            request.email(), userResponse.userId(), userResponse.isActive());
+                                    return Mono.just(ResponseEntity.status(401)
+                                            .body(AuthResponse.builder().message("Failed to validate newly created user").build()));
+                                }
+                            });
+                }))
+                .doOnSuccess(response -> log.info("Signup completed successfully for email: {}, status: {}",
+                        request.email(), response != null ? response.getStatusCode() : "null"))
+                .doOnError(error -> log.error("Signup process failed for email: {}", request.email(), error))
+                .onErrorResume(error -> {
+                    log.error("Signup error for email: {}", request.email(), error);
+                    // Check if it's a 400 Bad Request (user already exists)
+                    if (error.getMessage() != null && error.getMessage().contains("400 Bad Request")) {
+                        return Mono.just(ResponseEntity.status(409)
+                                .body(AuthResponse.builder().message("User already exists").build()));
+                    } else {
+                        return Mono.just(ResponseEntity.status(500)
+                                .body(AuthResponse.builder().message("Signup failed: " + error.getMessage()).build()));
+                    }
+                });
     }
     
     @PostMapping("/logout")
@@ -140,8 +176,15 @@ public class AuthController {
                 user.id(), user.email(), user.name());
         String refreshToken = jwtService.generateRefreshToken(user.id());
 
+        log.info("Generated tokens for user {}: accessToken length={}, refreshToken length={}",
+                user.email(), accessToken != null ? accessToken.length() : 0,
+                refreshToken != null ? refreshToken.length() : 0);
+
         ResponseCookie accessCookie = createAccessTokenCookie(accessToken);
         ResponseCookie refreshCookie = createRefreshTokenCookie(refreshToken);
+
+        log.info("Created cookies: accessCookie={}, refreshCookie={}",
+                accessCookie.toString(), refreshCookie.toString());
 
         AuthResponse response = AuthResponse.builder()
                 .message(message)
