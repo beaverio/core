@@ -27,16 +27,29 @@ public class JwtTokenUtil {
         this.config = config;
     }
 
+    public String generateAccessToken(String id) {
+        return generateToken(id, config.getAccessTokenValidity(), "access");
+    }
+
+    public String generateRefreshToken(String id) {
+        return generateToken(id, config.getRefreshTokenValidity(), "refresh");
+    }
+
     public String generateToken(String id) {
-        Claims claims = Jwts.claims().subject(id).build();
+        // Keep backward compatibility - defaults to access token
+        return generateAccessToken(id);
+    }
+
+    private String generateToken(String id, long validityMinutes, String type) {
         long nowMillis = System.currentTimeMillis();
-        long expMillis = nowMillis + config.getValidity() * 1000 * 60;
+        long expMillis = nowMillis + validityMinutes * 1000 * 60;
         Date exp = new Date(expMillis);
         
         SecretKey key = Keys.hmacShaKeyFor(config.getSecret().getBytes(StandardCharsets.UTF_8));
         
         return Jwts.builder()
-                .claims(claims)
+                .subject(id)
+                .claim("type", type)
                 .issuedAt(new Date(nowMillis))
                 .expiration(exp)
                 .signWith(key)
@@ -66,13 +79,25 @@ public class JwtTokenUtil {
     }
 
     public void validateTokenFromCookie(final String token) throws JwtTokenMalformedException, JwtTokenMissingException {
+        validateTokenFromCookie(token, null); // Accept any token type for access validation
+    }
+
+    public void validateTokenFromCookie(final String token, String expectedType) throws JwtTokenMalformedException, JwtTokenMissingException {
         try {
             if (token == null || token.trim().isEmpty()) {
                 throw new JwtTokenMissingException("JWT token is missing.");
             }
 
             SecretKey key = Keys.hmacShaKeyFor(config.getSecret().getBytes(StandardCharsets.UTF_8));
-            Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
+            Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+            
+            // Validate token type if specified
+            if (expectedType != null) {
+                String tokenType = claims.get("type", String.class);
+                if (!expectedType.equals(tokenType)) {
+                    throw new JwtTokenMalformedException("Invalid token type. Expected: " + expectedType + ", but got: " + tokenType);
+                }
+            }
         } catch (SignatureException ex) {
             throw new JwtTokenMalformedException("Invalid JWT signature");
         } catch (MalformedJwtException ex) {
@@ -83,6 +108,16 @@ public class JwtTokenUtil {
             throw new JwtTokenMalformedException("Unsupported JWT token");
         } catch (IllegalArgumentException ex) {
             throw new JwtTokenMissingException("JWT claims string is empty.");
+        }
+    }
+
+    public String getUserIdFromToken(String token) throws JwtTokenMalformedException {
+        try {
+            SecretKey key = Keys.hmacShaKeyFor(config.getSecret().getBytes(StandardCharsets.UTF_8));
+            Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+            return claims.getSubject();
+        } catch (Exception ex) {
+            throw new JwtTokenMalformedException("Cannot extract user ID from token");
         }
     }
 }

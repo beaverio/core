@@ -12,7 +12,6 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/auth")
 public class AuthController {
 
-    // Commenting for checkmark
     private final JwtTokenUtil jwtTokenUtil;
     
     // Mock user for testing - TODO: Replace with actual user-service calls
@@ -27,59 +26,80 @@ public class AuthController {
         this.jwtTokenUtil = jwtTokenUtil;
     }
     
-    
     @PostMapping("/login")
     public Mono<ResponseEntity<AuthResponse>> login(@RequestBody LoginRequest request) {
         return validateCredentials(request.email(), request.password())
                 .flatMap(user -> {
-                    // Generate JWT token using the user ID
-                    String token = jwtTokenUtil.generateToken(user.id());
+                    // Generate both access and refresh tokens
+                    String accessToken = jwtTokenUtil.generateAccessToken(user.id());
+                    String refreshToken = jwtTokenUtil.generateRefreshToken(user.id());
                     
-                    // Create HTTP-only cookie for security
-                    ResponseCookie cookie = ResponseCookie.from("access_token", token)
+                    // Create HTTP-only cookies for security
+                    ResponseCookie accessCookie = ResponseCookie.from("access_token", accessToken)
                             .httpOnly(true)
                             .secure(false) // Set to true in production with HTTPS
                             .sameSite("Strict")
-                            .maxAge(20 * 60) // 20 minutes (same as JWT validity)
+                            .maxAge(15 * 60) // 15 minutes
                             .path("/")
                             .build();
                     
-                    AuthResponse response = new AuthResponse("Login successful", user.id(), user.email(), user.name(), null);
+                    ResponseCookie refreshCookie = ResponseCookie.from("refresh_token", refreshToken)
+                            .httpOnly(true)
+                            .secure(false) // Set to true in production with HTTPS
+                            .sameSite("Strict")
+                            .maxAge(24 * 60 * 60) // 24 hours
+                            .path("/")
+                            .build();
+                    
+                    // Remove token from response body
+                    AuthResponse response = new AuthResponse("Login successful", user.id(), user.email(), user.name());
                     return Mono.just(ResponseEntity.ok()
-                            .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                            .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                            .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                             .body(response));
                 })
-                .defaultIfEmpty(ResponseEntity.status(401).body(new AuthResponse("Invalid credentials", null, null, null, null)));
+                .defaultIfEmpty(ResponseEntity.status(401).body(new AuthResponse("Invalid credentials", null, null, null)));
     }
     
     @PostMapping("/signup")
     public Mono<ResponseEntity<AuthResponse>> signup(@RequestBody SignupRequest request) {
         return createUser(request.email(), request.password(), request.name())
                 .flatMap(user -> {
-                    // Generate JWT token using the user ID
-                    String token = jwtTokenUtil.generateToken(user.id());
+                    // Generate both access and refresh tokens
+                    String accessToken = jwtTokenUtil.generateAccessToken(user.id());
+                    String refreshToken = jwtTokenUtil.generateRefreshToken(user.id());
                     
-                    // Create HTTP-only cookie for security
-                    ResponseCookie cookie = ResponseCookie.from("access_token", token)
+                    // Create HTTP-only cookies for security
+                    ResponseCookie accessCookie = ResponseCookie.from("access_token", accessToken)
                             .httpOnly(true)
                             .secure(false) // Set to true in production with HTTPS
                             .sameSite("Strict")
-                            .maxAge(20 * 60) // 20 minutes (same as JWT validity)
+                            .maxAge(15 * 60) // 15 minutes
                             .path("/")
                             .build();
                     
-                    AuthResponse response = new AuthResponse("Signup successful", user.id(), user.email(), user.name(), null);
+                    ResponseCookie refreshCookie = ResponseCookie.from("refresh_token", refreshToken)
+                            .httpOnly(true)
+                            .secure(false) // Set to true in production with HTTPS
+                            .sameSite("Strict")
+                            .maxAge(24 * 60 * 60) // 24 hours
+                            .path("/")
+                            .build();
+                    
+                    // Remove token from response body
+                    AuthResponse response = new AuthResponse("Signup successful", user.id(), user.email(), user.name());
                     return Mono.just(ResponseEntity.ok()
-                            .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                            .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                            .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                             .body(response));
                 })
-                .defaultIfEmpty(ResponseEntity.status(400).body(new AuthResponse("User already exists", null, null, null, null)));
+                .defaultIfEmpty(ResponseEntity.status(400).body(new AuthResponse("User already exists", null, null, null)));
     }
     
     @PostMapping("/logout")
     public Mono<ResponseEntity<AuthResponse>> logout() {
-        // Create expired cookie to clear the token
-        ResponseCookie cookie = ResponseCookie.from("access_token", "")
+        // Create expired cookies to clear both tokens
+        ResponseCookie accessCookie = ResponseCookie.from("access_token", "")
                 .httpOnly(true)
                 .secure(false) // Set to true in production with HTTPS
                 .sameSite("Strict")
@@ -87,12 +107,55 @@ public class AuthController {
                 .path("/")
                 .build();
         
-        AuthResponse response = new AuthResponse("Logout successful", null, null, null, null);
+        ResponseCookie refreshCookie = ResponseCookie.from("refresh_token", "")
+                .httpOnly(true)
+                .secure(false) // Set to true in production with HTTPS
+                .sameSite("Strict")
+                .maxAge(0) // Expire immediately
+                .path("/")
+                .build();
+        
+        AuthResponse response = new AuthResponse("Logout successful", null, null, null);
         return Mono.just(ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(response));
     }
     
+    @PostMapping("/refresh")
+    public Mono<ResponseEntity<AuthResponse>> refresh(@CookieValue(value = "refresh_token", required = false) String refreshToken) {
+        if (refreshToken == null || refreshToken.trim().isEmpty()) {
+            return Mono.just(ResponseEntity.status(401).body(new AuthResponse("Refresh token is missing", null, null, null)));
+        }
+        
+        try {
+            // Validate refresh token with type check
+            jwtTokenUtil.validateTokenFromCookie(refreshToken, "refresh");
+            
+            // Extract user ID from refresh token
+            String userId = jwtTokenUtil.getUserIdFromToken(refreshToken);
+            
+            // Generate new access token
+            String newAccessToken = jwtTokenUtil.generateAccessToken(userId);
+            
+            // Create new access token cookie
+            ResponseCookie accessCookie = ResponseCookie.from("access_token", newAccessToken)
+                    .httpOnly(true)
+                    .secure(false) // Set to true in production with HTTPS
+                    .sameSite("Strict")
+                    .maxAge(15 * 60) // 15 minutes
+                    .path("/")
+                    .build();
+            
+            AuthResponse response = new AuthResponse("Token refreshed successfully", userId, null, null);
+            return Mono.just(ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                    .body(response));
+            
+        } catch (Exception ex) {
+            return Mono.just(ResponseEntity.status(401).body(new AuthResponse("Invalid refresh token", null, null, null)));
+        }
+    }
     
     // Mock credential validation - TODO: Replace with user-service call
     private Mono<User> validateCredentials(String email, String password) {

@@ -39,5 +39,6 @@ logging:
 
 jwt:
   secret: ${JWT_SECRET:my-super-secret-jwt-key-for-development-only-please-change-in-production}
-  validity: ${JWT_VALIDITY:20}  # 20 minutes
+  accessTokenValidity: ${JWT_ACCESS_VALIDITY:15}  # 15 minutes
+  refreshTokenValidity: ${JWT_REFRESH_VALIDITY:1440}  # 24 hours (1440 minutes)
   authDisabled: ${JWT_AUTH_DISABLED:false}
