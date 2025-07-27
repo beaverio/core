@@ -21,7 +21,7 @@ spring:
             - name: AddRequestHeader
               args:
                 name: X-Service-Secret
-                value: ${GATEWAY_SECRET}
+                value: ${GATEWAY_SECRET:default-secret}
             - name: AddRequestHeader
               args:
                 name: X-Source
@@ -29,9 +29,14 @@ spring:
 
   data:
     redis:
-      url: ${REDIS_URL}
+      url: ${REDIS_URL:redis://localhost:6379}
+
+logging:
+  level:
+    com.beaver.core: DEBUG
+    org.springframework.security: DEBUG
 
 jwt:
-  secret: ${JWT_SECRET}
-  access-token-expiration: ${JWT_ACCESS_EXPIRATION}   # 15 minutes
-  refresh-token-expiration: ${JWT_REFRESH_EXPIRATION} # 24 hours
+  secret: ${JWT_SECRET:my-super-secret-jwt-key-for-development-only-please-change-in-production}
+  access-token-expiration: ${JWT_ACCESS_EXPIRATION:15m}   # 15 minutes
+  refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:24h} # 24 hours
