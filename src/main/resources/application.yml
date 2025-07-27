@@ -1,20 +1,21 @@
+server:
+  port: 8080
+
 spring:
   application:
-    name: beaver-core-prod
+    name: beaver-core-${ENV}
 
-  datasource:
-    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/v1/users/**
+          filters:
+            - AddRequestHeader=Authorization, Bearer shared-secret
+            - AddRequestHeader=X-Source, gateway
 
-  jpa:
-    hibernate:
-      ddl-auto: none
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
   data:
     redis:
       host: ${REDIS_HOST}
