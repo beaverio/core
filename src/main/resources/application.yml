@@ -22,7 +22,7 @@ spring:
             - name: AddRequestHeader
               args:
                 name: X-Service-Secret
-                value: ${GATEWAY_SECRET}
+                value: ${gateway.secret}
             - name: AddRequestHeader
               args:
                 name: X-Source
@@ -39,6 +39,9 @@ jwt:
   accessTokenValidity: ${JWT_ACCESS_VALIDITY}
   refreshTokenValidity: ${JWT_REFRESH_VALIDITY}
   authDisabled: false
+
+gateway:
+  secret: ${GATEWAY_SECRET}
 
 # Downstream Services
 user-service:

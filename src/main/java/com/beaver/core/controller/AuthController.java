@@ -1,5 +1,6 @@
 package com.beaver.core.controller;
 
+import com.beaver.core.client.UserServiceClient;
 import com.beaver.core.config.JwtConfig;
 import com.beaver.core.dto.*;
 import com.beaver.core.service.JwtService;
@@ -13,6 +14,7 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/auth")
 public class AuthController {
 
+    private final UserServiceClient userServiceClient;
     private final JwtService jwtService;
     private final JwtConfig jwtConfig;
 
@@ -24,23 +26,43 @@ public class AuthController {
         "password"
     );
     
-    public AuthController(JwtService jwtService, JwtConfig jwtConfig) {
+    public AuthController(UserServiceClient userServiceClient, JwtService jwtService, JwtConfig jwtConfig) {
+        this.userServiceClient = userServiceClient;
         this.jwtService = jwtService;
         this.jwtConfig = jwtConfig;
     }
-    
+
     @PostMapping("/login")
     public Mono<ResponseEntity<AuthResponse>> login(@RequestBody LoginRequest request) {
-        return validateCredentials(request.email(), request.password())
-                .flatMap(user -> createAuthResponse(user, "Login successful"))
-                .defaultIfEmpty(ResponseEntity.status(401).body(AuthResponse.builder().message("Invalid credentials").build()));
+        return userServiceClient.validateCredentials(request.email(), request.password())
+                .flatMap(userResponse -> {
+                    if (userResponse.isValid()) {
+                        return createAuthResponse(
+                                User.builder()
+                                    .id(userResponse.userId())
+                                    .email(userResponse.email())
+                                    .name(userResponse.name())
+                                        .build()
+                                , "Login successful");
+                    } else {
+                        return Mono.just(ResponseEntity.status(401)
+                                .body(AuthResponse.builder().message("Invalid credentials").build()));
+                    }
+                });
     }
-    
+
     @PostMapping("/signup")
     public Mono<ResponseEntity<AuthResponse>> signup(@RequestBody SignupRequest request) {
-        return createUser(request.email(), request.password(), request.name())
-                .flatMap(user -> createAuthResponse(user, "Signup successful"))
-                .defaultIfEmpty(ResponseEntity.status(409).body(AuthResponse.builder().message("User already exists").build()));
+        return userServiceClient.createUser(request.email(), request.password(), request.name())
+                .then(userServiceClient.validateCredentials(request.email(), request.password()))
+                .flatMap(userResponse -> createAuthResponse(
+                        User.builder()
+                            .id(userResponse.userId())
+                            .email(userResponse.email())
+                            .name(userResponse.name()).build(),
+                        "Signup successful"))
+                .onErrorReturn(ResponseEntity.status(409)
+                        .body(AuthResponse.builder().message("User already exists").build()));
     }
     
     @PostMapping("/logout")
@@ -110,9 +132,12 @@ public class AuthController {
 
         return Mono.just(ResponseEntity.status(401).body(AuthResponse.builder().message("User not found").build()));
     }
-    
-    private Mono<ResponseEntity<AuthResponse>> createAuthResponse(User user, String message) {
-        String accessToken = jwtService.generateAccessToken(user.id(), user.email(), user.name());
+
+    private Mono<ResponseEntity<AuthResponse>> createAuthResponse(
+            User user, String message) {
+
+        String accessToken = jwtService.generateAccessToken(
+                user.id(), user.email(), user.name());
         String refreshToken = jwtService.generateRefreshToken(user.id());
 
         ResponseCookie accessCookie = createAccessTokenCookie(accessToken);
@@ -149,29 +174,5 @@ public class AuthController {
                 .maxAge(jwtConfig.getRefreshTokenValidity() * 60) // Convert minutes to seconds
                 .path("/")
                 .build();
-    }
-
-    // Mock credential validation - TODO: Replace with user-service call
-    private Mono<User> validateCredentials(String email, String password) {
-        if (MOCK_USER.email().equals(email) && MOCK_USER.password().equals(password)) {
-            return Mono.just(MOCK_USER);
-        }
-        return Mono.empty();
-    }
-    
-    // Mock user creation - TODO: Replace with user-service call
-    private Mono<User> createUser(String email, String password, String name) {
-        // For now, only allow creation of the mock user
-        if (MOCK_USER.email().equals(email)) {
-            return Mono.empty(); // User already exists
-        }
-        // In real implementation, would call user-service to create user
-        User newUser = User.builder()
-                .id("new-user-id")
-                .email(email)
-                .password(password)
-                .name(name)
-                .build();
-        return Mono.just(newUser);
     }
 }
