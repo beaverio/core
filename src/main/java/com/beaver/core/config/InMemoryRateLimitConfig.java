@@ -56,7 +56,7 @@ public class InMemoryRateLimitConfig {
             TokenBucket bucket = buckets.computeIfAbsent(id, k -> new TokenBucket(capacity, refillRate));
             
             if (bucket.tryConsume()) {
-                return Mono.just(new Response(true, null));
+                return Mono.just(new Response(true, java.util.Map.of()));
             } else {
                 // Rate limited - return headers indicating when to retry
                 return Mono.just(new Response(false, 
