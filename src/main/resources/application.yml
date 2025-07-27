@@ -1,7 +1,9 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
+  config:
+    import: optional:file:.env[.properties]
   application:
     name: beaver-core-${ENV:local}
 
@@ -9,19 +11,27 @@ spring:
     gateway:
       routes:
         - id: user-service
-          uri: http://localhost:8081
+          uri: ${USER_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/v1/users/**
           filters:
-            - StripPrefix=2  # Remove /v1/users from the path
-            - AddRequestHeader=Authorization, Bearer shared-secret
-            - AddRequestHeader=X-Source, gateway
+            - name: StripPrefix
+              args:
+                parts: 1
+            - name: AddRequestHeader
+              args:
+                name: X-Service-Secret
+                value: ${GATEWAY_SECRET}
+            - name: AddRequestHeader
+              args:
+                name: X-Source
+                value: gateway
 
   data:
     redis:
-      url: ${REDIS_URL:redis://localhost:6379}
+      url: ${REDIS_URL}
 
 jwt:
-  secret: ${JWT_SECRET:your-secret-key}
-  access-token-expiration: 900000   # 15 minutes
-  refresh-token-expiration: 86400000 # 24 hours
+  secret: ${JWT_SECRET}
+  access-token-expiration: ${JWT_ACCESS_EXPIRATION}   # 15 minutes
+  refresh-token-expiration: ${JWT_REFRESH_EXPIRATION} # 24 hours
