@@ -9,7 +9,8 @@ import reactor.core.publisher.Mono;
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
-    
+
+    // Commenting for checkmark
     private final JwtTokenUtil jwtTokenUtil;
     
     // Mock user for testing - TODO: Replace with actual user-service calls
