@@ -5,10 +5,10 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
 @RestController
-public class TestController {
+public class HealthController {
 
-    @GetMapping("/health")
-    public Mono<String> health() {
-        return Mono.just("Gateway is running!");
+    @GetMapping("/ping")
+    public Mono<String> pong() {
+        return Mono.just("PONG");
     }
 }

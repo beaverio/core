@@ -15,6 +15,7 @@ spring:
           predicates:
             - Path=/v1/users/**
           filters:
+            - AuthenticationFilter
             - name: StripPrefix
               args:
                 parts: 1
@@ -27,11 +28,14 @@ spring:
                 name: X-Source
                 value: gateway
 
-  data:
-    redis:
-      url: ${REDIS_URL}
+logging:
+  level:
+    com.beaver.core: DEBUG
+    org.springframework.cloud.gateway: INFO
+    org.springframework.cloud.gateway.handler.FilteringWebHandler: WARN
 
 jwt:
   secret: ${JWT_SECRET}
-  access-token-expiration: ${JWT_ACCESS_EXPIRATION}   # 15 minutes
-  refresh-token-expiration: ${JWT_REFRESH_EXPIRATION} # 24 hours
+  accessTokenValidity: ${JWT_ACCESS_VALIDITY}
+  refreshTokenValidity: ${JWT_REFRESH_VALIDITY}
+  authDisabled: false
