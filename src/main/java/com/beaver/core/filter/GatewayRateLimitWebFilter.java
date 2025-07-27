@@ -22,17 +22,14 @@ public class GatewayRateLimitWebFilter implements WebFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        // Get client IP address for rate limiting key
         String clientIp = getClientIp(exchange);
 
         // Apply rate limiting to ALL requests - no exceptions
         return rateLimiter.isAllowed("gateway", clientIp)
                 .flatMap(response -> {
                     if (response.isAllowed()) {
-                        // Rate limit passed, continue with request
                         return chain.filter(exchange);
                     } else {
-                        // Rate limited, return 429 Too Many Requests
                         return handleRateLimited(exchange);
                     }
                 });

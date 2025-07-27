@@ -1,9 +1,9 @@
 package com.beaver.core.security;
 
 import com.beaver.core.config.JwtConfig;
+import com.beaver.core.service.JwtService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -13,13 +13,10 @@ import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 
 @RefreshScope
@@ -28,39 +25,42 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
 
     private static final Logger log = LoggerFactory.getLogger(AuthenticationFilter.class);
 
-    private final RouterValidator routerValidator;
-    private final JwtTokenUtil jwtTokenUtil;
+    private final JwtService jwtService;
     private final JwtConfig jwtConfig;
     private final ObjectMapper objectMapper;
 
-    public AuthenticationFilter(RouterValidator routerValidator, JwtTokenUtil jwtTokenUtil, JwtConfig config, ObjectMapper objectMapper) {
+    public AuthenticationFilter(JwtService jwtService, JwtConfig jwtConfig, ObjectMapper objectMapper) {
         super(Config.class);
-        this.routerValidator = routerValidator;
-        this.jwtTokenUtil = jwtTokenUtil;
-        this.jwtConfig = config;
+        this.jwtService = jwtService;
+        this.jwtConfig = jwtConfig;
         this.objectMapper = objectMapper;
     }
 
     @Override
     public GatewayFilter apply(Config config) {
         return ((exchange, chain) -> {
-            if (routerValidator.isSecured.test(exchange.getRequest()) && !jwtConfig.isAuthDisabled()) {
-                // Extract JWT token from cookies instead of Authorization header
+            if (!jwtConfig.isAuthDisabled()) {
                 String token = extractTokenFromCookies(exchange.getRequest());
                 
                 if (token == null) {
-                    // Return 401 instead of throwing RuntimeException
-                    log.warn("Missing JWT token in cookies for request to: {}", exchange.getRequest().getURI().getPath());
-                    return handleUnauthorized(exchange.getResponse(), "Missing JWT token in cookies", exchange.getRequest().getURI().toString());
+                    log.warn("Access token is missing for request to: {}", exchange.getRequest().getURI().getPath());
+                    return handleUnauthorized(exchange.getResponse(), "Access token is missing", exchange.getRequest().getURI().toString());
                 }
 
-                try {
-                    jwtTokenUtil.validateTokenFromCookie(token);
-                }
-                catch (Exception ex) {
-                    log.warn("JWT token validation failed for request to: {}", exchange.getRequest().getURI().getPath());
-                    return handleUnauthorized(exchange.getResponse(), "Invalid or expired JWT token", exchange.getRequest().getURI().toString());
-                }
+                // Reactive JWT validation
+                return jwtService.isValidAccessToken(token)
+                    .flatMap(isValid -> {
+                        if (isValid) {
+                            return chain.filter(exchange);
+                        } else {
+                            log.warn("JWT token validation failed for request to: {}", exchange.getRequest().getURI().getPath());
+                            return handleUnauthorized(exchange.getResponse(), "Invalid or expired JWT token", exchange.getRequest().getURI().toString());
+                        }
+                    })
+                    .onErrorResume(ex -> {
+                        log.warn("JWT token validation error for request to: {}", exchange.getRequest().getURI().getPath(), ex);
+                        return handleUnauthorized(exchange.getResponse(), "Invalid or expired JWT token", exchange.getRequest().getURI().toString());
+                    });
             }
 
             return chain.filter(exchange);

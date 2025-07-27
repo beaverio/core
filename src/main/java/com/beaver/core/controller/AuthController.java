@@ -33,24 +33,23 @@ public class AuthController {
     public Mono<ResponseEntity<AuthResponse>> login(@RequestBody LoginRequest request) {
         return validateCredentials(request.email(), request.password())
                 .flatMap(user -> createAuthResponse(user, "Login successful"))
-                .defaultIfEmpty(ResponseEntity.status(401).body(new AuthResponse("Invalid credentials", null, null, null)));
+                .defaultIfEmpty(ResponseEntity.status(401).body(AuthResponse.builder().message("Invalid credentials").build()));
     }
     
     @PostMapping("/signup")
     public Mono<ResponseEntity<AuthResponse>> signup(@RequestBody SignupRequest request) {
         return createUser(request.email(), request.password(), request.name())
                 .flatMap(user -> createAuthResponse(user, "Signup successful"))
-                .defaultIfEmpty(ResponseEntity.status(400).body(new AuthResponse("User already exists", null, null, null)));
+                .defaultIfEmpty(ResponseEntity.status(409).body(AuthResponse.builder().message("User already exists").build()));
     }
     
     @PostMapping("/logout")
     public Mono<ResponseEntity<AuthResponse>> logout() {
-        // Create expired cookies to clear both tokens
         ResponseCookie accessCookie = ResponseCookie.from("access_token", "")
                 .httpOnly(true)
                 .secure(false)
                 .sameSite("Strict")
-                .maxAge(0) // Expire immediately
+                .maxAge(0)
                 .path("/")
                 .build();
         
@@ -58,11 +57,12 @@ public class AuthController {
                 .httpOnly(true)
                 .secure(false)
                 .sameSite("Strict")
-                .maxAge(0) // Expire immediately
+                .maxAge(0)
                 .path("/")
                 .build();
         
-        AuthResponse response = new AuthResponse("Logout successful", null, null, null);
+        AuthResponse response = AuthResponse.builder().message("Logout successful").build();
+
         return Mono.just(ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
@@ -72,7 +72,7 @@ public class AuthController {
     @PostMapping("/refresh")
     public Mono<ResponseEntity<AuthResponse>> refresh(@CookieValue(value = "refresh_token", required = false) String refreshToken) {
         if (refreshToken == null || refreshToken.trim().isEmpty()) {
-            return Mono.just(ResponseEntity.status(401).body(new AuthResponse("Refresh token is missing", null, null, null)));
+            return Mono.just(ResponseEntity.status(401).body(AuthResponse.builder().message("Refresh token is missing").build()));
         }
         
         // Validate refresh token using reactive methods
@@ -86,7 +86,7 @@ public class AuthController {
                     return jwtService.extractUserId(refreshToken)
                             .flatMap(this::generateNewAccessToken);
                 })
-                .switchIfEmpty(Mono.just(ResponseEntity.status(401).body(new AuthResponse("Invalid refresh token", null, null, null))));
+                .switchIfEmpty(Mono.just(ResponseEntity.status(401).body(AuthResponse.builder().message("Invalid refresh token").build())));
     }
 
     private Mono<ResponseEntity<AuthResponse>> generateNewAccessToken(String userId) {
@@ -96,37 +96,41 @@ public class AuthController {
 
             ResponseCookie accessCookie = createAccessTokenCookie(newAccessToken);
 
-            AuthResponse response = new AuthResponse("Token refreshed successfully", userId, MOCK_USER.email(), MOCK_USER.name());
+            AuthResponse response = AuthResponse.builder()
+                    .message("Token refreshed successfully")
+                    .userId(userId)
+                    .email(MOCK_USER.email())
+                    .name(MOCK_USER.name())
+                    .build();
+
             return Mono.just(ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                     .body(response));
         }
 
-        return Mono.just(ResponseEntity.status(401).body(new AuthResponse("User not found", null, null, null)));
+        return Mono.just(ResponseEntity.status(401).body(AuthResponse.builder().message("User not found").build()));
     }
     
-    /**
-     * Helper method to create authentication response with tokens and cookies
-     */
     private Mono<ResponseEntity<AuthResponse>> createAuthResponse(User user, String message) {
-        // Generate both access and refresh tokens using JwtService
         String accessToken = jwtService.generateAccessToken(user.id(), user.email(), user.name());
         String refreshToken = jwtService.generateRefreshToken(user.id());
 
-        // Create HTTP-only cookies for security
         ResponseCookie accessCookie = createAccessTokenCookie(accessToken);
         ResponseCookie refreshCookie = createRefreshTokenCookie(refreshToken);
 
-        AuthResponse response = new AuthResponse(message, user.id(), user.email(), user.name());
+        AuthResponse response = AuthResponse.builder()
+                .message(message)
+                .userId(user.id())
+                .email(user.email())
+                .name(user.name())
+                .build();
+
         return Mono.just(ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(response));
     }
 
-    /**
-     * Helper method to create access token cookie
-     */
     private ResponseCookie createAccessTokenCookie(String accessToken) {
         return ResponseCookie.from("access_token", accessToken)
                 .httpOnly(true)
@@ -137,9 +141,6 @@ public class AuthController {
                 .build();
     }
 
-    /**
-     * Helper method to create refresh token cookie
-     */
     private ResponseCookie createRefreshTokenCookie(String refreshToken) {
         return ResponseCookie.from("refresh_token", refreshToken)
                 .httpOnly(true)
@@ -165,7 +166,12 @@ public class AuthController {
             return Mono.empty(); // User already exists
         }
         // In real implementation, would call user-service to create user
-        User newUser = new User("new-user-id", email, name, password);
+        User newUser = User.builder()
+                .id("new-user-id")
+                .email(email)
+                .password(password)
+                .name(name)
+                .build();
         return Mono.just(newUser);
     }
 }
