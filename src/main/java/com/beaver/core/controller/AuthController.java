@@ -98,7 +98,7 @@ public class AuthController {
         // Clear cookies by setting them to expire immediately
         ResponseCookie accessCookie = ResponseCookie.from("access_token", "")
                 .httpOnly(true)
-                .secure(true)
+                .secure(false) // Set to true for production with HTTPS
                 .sameSite("Strict")
                 .path("/")
                 .maxAge(0)
@@ -106,7 +106,7 @@ public class AuthController {
                 
         ResponseCookie refreshCookie = ResponseCookie.from("refresh_token", "")
                 .httpOnly(true)
-                .secure(true)
+                .secure(false) // Set to true for production with HTTPS
                 .sameSite("Strict")
                 .path("/")
                 .maxAge(0)
@@ -149,7 +149,7 @@ public class AuthController {
     private ResponseCookie createTokenCookie(String name, String value, Duration maxAge) {
         return ResponseCookie.from(name, value)
                 .httpOnly(true)
-                .secure(true) // Set to false for local development without HTTPS
+                .secure(false) // Set to true for production with HTTPS
                 .sameSite("Strict")
                 .path("/")
                 .maxAge(maxAge)

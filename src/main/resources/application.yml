@@ -26,6 +26,7 @@ spring:
               args:
                 name: X-Source
                 value: gateway
+            - name: UserContext
 
   data:
     redis:

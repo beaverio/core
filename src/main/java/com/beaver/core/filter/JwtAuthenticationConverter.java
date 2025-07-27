@@ -27,7 +27,6 @@ public class JwtAuthenticationConverter implements ServerAuthenticationConverter
                 .flatMap(token -> jwtService.isValidAccessToken(token)
                         .filter(Boolean::booleanValue)
                         .flatMap(valid -> createAuthentication(token, exchange)))
-                .doOnNext(auth -> addUserHeadersToRequest(exchange, auth))
                 .cast(Authentication.class);
     }
     
@@ -59,17 +58,6 @@ public class JwtAuthenticationConverter implements ServerAuthenticationConverter
             
             return auth;
         });
-    }
-    
-    private void addUserHeadersToRequest(ServerWebExchange exchange, Authentication auth) {
-        if (auth.getDetails() instanceof UserDetails userDetails) {
-            // Add user context headers for downstream services
-            exchange.getRequest().mutate()
-                    .header("X-User-Id", userDetails.userId())
-                    .header("X-User-Email", userDetails.email())
-                    .header("X-User-Name", userDetails.name())
-                    .header("X-User-Roles", "ROLE_USER");
-        }
     }
     
     public record UserDetails(String userId, String email, String name) {}
