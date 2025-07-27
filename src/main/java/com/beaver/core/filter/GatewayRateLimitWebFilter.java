@@ -12,28 +12,21 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 @Component
-public class AuthRateLimitWebFilter implements WebFilter {
+public class GatewayRateLimitWebFilter implements WebFilter {
 
     private final RateLimiter<Object> rateLimiter;
 
-    public AuthRateLimitWebFilter(RateLimiter<Object> rateLimiter) {
+    public GatewayRateLimitWebFilter(RateLimiter<Object> rateLimiter) {
         this.rateLimiter = rateLimiter;
     }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        String path = exchange.getRequest().getPath().value();
-
-        // Only apply rate limiting to auth endpoints
-        if (!path.startsWith("/auth/")) {
-            return chain.filter(exchange);
-        }
-
-        // Get client IP address
+        // Get client IP address for rate limiting key
         String clientIp = getClientIp(exchange);
 
-        // Check rate limit reactively
-        return rateLimiter.isAllowed("auth", clientIp)
+        // Apply rate limiting to ALL requests - no exceptions
+        return rateLimiter.isAllowed("gateway", clientIp)
                 .flatMap(response -> {
                     if (response.isAllowed()) {
                         // Rate limit passed, continue with request
@@ -50,7 +43,7 @@ public class AuthRateLimitWebFilter implements WebFilter {
         response.setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
 
-        String body = "{\"error\":\"Too many requests. Please try again later.\",\"status\":429}";
+        String body = "{\"error\":\"Too many requests. Please slow down.\",\"status\":429,\"retryAfter\":\"30 seconds\"}";
         DataBuffer buffer = response.bufferFactory().wrap(body.getBytes());
 
         return response.writeWith(Mono.just(buffer));
