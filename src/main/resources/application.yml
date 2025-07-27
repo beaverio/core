@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: beaver-core-${ENV}
+    name: beaver-core-${ENV:local}
 
   cloud:
     gateway:
@@ -13,18 +13,15 @@ spring:
           predicates:
             - Path=/v1/users/**
           filters:
+            - StripPrefix=2  # Remove /v1/users from the path
             - AddRequestHeader=Authorization, Bearer shared-secret
             - AddRequestHeader=X-Source, gateway
 
   data:
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-
-  flyway:
-    enabled: true
+      url: ${REDIS_URL:redis://localhost:6379}
 
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:your-secret-key}
   access-token-expiration: 900000   # 15 minutes
   refresh-token-expiration: 86400000 # 24 hours
