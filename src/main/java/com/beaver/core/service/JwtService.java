@@ -1,6 +1,6 @@
 package com.beaver.core.service;
 
-import com.beaver.core.config.JwtProperties;
+import com.beaver.core.config.JwtConfig;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -16,12 +16,12 @@ import java.util.function.Function;
 @Service
 public class JwtService {
     
-    private final JwtProperties jwtProperties;
+    private final JwtConfig jwtConfig;
     private final SecretKey secretKey;
     
-    public JwtService(JwtProperties jwtProperties) {
-        this.jwtProperties = jwtProperties;
-        this.secretKey = Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));
+    public JwtService(JwtConfig jwtConfig) {
+        this.jwtConfig = jwtConfig;
+        this.secretKey = Keys.hmacShaKeyFor(jwtConfig.getSecret().getBytes(StandardCharsets.UTF_8));
     }
     
     /**
@@ -33,7 +33,7 @@ public class JwtService {
             "email", email,
             "name", name,
             "type", "access"
-        ), jwtProperties.getAccessTokenExpirationMs());
+        ), jwtConfig.getAccessTokenValidity() * 60 * 1000); // Convert minutes to milliseconds
     }
     
     /**
@@ -43,7 +43,7 @@ public class JwtService {
         return generateToken(Map.of(
             "userId", userId,
             "type", "refresh"
-        ), jwtProperties.getRefreshTokenExpirationMs());
+        ), jwtConfig.getRefreshTokenValidity() * 60 * 1000); // Convert minutes to milliseconds
     }
     
     /**
@@ -61,7 +61,7 @@ public class JwtService {
     }
     
     /**
-     * Extract user name from token
+     * Extract username from token
      */
     public Mono<String> extractUserName(String token) {
         return extractClaim(token, claims -> claims.get("name", String.class));

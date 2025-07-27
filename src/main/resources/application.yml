@@ -22,15 +22,11 @@ spring:
             - name: AddRequestHeader
               args:
                 name: X-Service-Secret
-                value: ${GATEWAY_SECRET:default-secret}
+                value: ${GATEWAY_SECRET}
             - name: AddRequestHeader
               args:
                 name: X-Source
                 value: gateway
-
-  data:
-    redis:
-      url: ${REDIS_URL:redis://localhost:6379}
 
 logging:
   level:
@@ -38,7 +34,7 @@ logging:
     '[org.springframework.cloud.gateway]': TRACE
 
 jwt:
-  secret: ${JWT_SECRET:my-super-secret-jwt-key-for-development-only-please-change-in-production}
-  accessTokenValidity: ${JWT_ACCESS_VALIDITY:15}  # 15 minutes
-  refreshTokenValidity: ${JWT_REFRESH_VALIDITY:1440}  # 24 hours (1440 minutes)
-  authDisabled: ${JWT_AUTH_DISABLED:false}
+  secret: ${JWT_SECRET}
+  accessTokenValidity: ${JWT_ACCESS_VALIDITY}
+  refreshTokenValidity: ${JWT_REFRESH_VALIDITY}
+  authDisabled: false

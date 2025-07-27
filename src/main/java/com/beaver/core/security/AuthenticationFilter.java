@@ -28,7 +28,6 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
 
     private static final Logger log = LoggerFactory.getLogger(AuthenticationFilter.class);
 
-    @Autowired
     private final RouterValidator routerValidator;
     private final JwtTokenUtil jwtTokenUtil;
     private final JwtConfig jwtConfig;

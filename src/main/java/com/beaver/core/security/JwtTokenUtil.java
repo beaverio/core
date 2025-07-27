@@ -35,11 +35,6 @@ public class JwtTokenUtil {
         return generateToken(id, config.getRefreshTokenValidity(), "refresh");
     }
 
-    public String generateToken(String id) {
-        // Keep backward compatibility - defaults to access token
-        return generateAccessToken(id);
-    }
-
     private String generateToken(String id, long validityMinutes, String type) {
         long nowMillis = System.currentTimeMillis();
         long expMillis = nowMillis + validityMinutes * 1000 * 60;

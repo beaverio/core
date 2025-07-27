@@ -1,20 +1,17 @@
 package com.beaver.core.config;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Configuration
-public class InMemoryRateLimitConfig {
+public class RateLimitConfig {
 
     /**
      * Rate limiting based on IP address for authentication endpoints
@@ -35,8 +32,6 @@ public class InMemoryRateLimitConfig {
      * This provides basic rate limiting functionality for authentication endpoints
      */
     @Bean
-    @Primary
-    @ConditionalOnMissingBean(name = "redisRateLimiter")
     public RateLimiter inMemoryRateLimiter() {
         return new InMemoryRateLimiter();
     }
@@ -48,8 +43,8 @@ public class InMemoryRateLimitConfig {
     static class InMemoryRateLimiter implements RateLimiter<Object> {
         
         private final ConcurrentHashMap<String, TokenBucket> buckets = new ConcurrentHashMap<>();
-        private final int capacity = 10; // burst capacity
-        private final int refillRate = 5; // tokens per second
+        private final int capacity = 10;
+        private final int refillRate = 5;
         
         @Override
         public Mono<Response> isAllowed(String routeId, String id) {
@@ -58,8 +53,7 @@ public class InMemoryRateLimitConfig {
             if (bucket.tryConsume()) {
                 return Mono.just(new Response(true, java.util.Map.of()));
             } else {
-                // Rate limited - return headers indicating when to retry
-                return Mono.just(new Response(false, 
+                return Mono.just(new Response(false,
                     java.util.Map.of("X-RateLimit-Retry-After-Seconds", "1")));
             }
         }
@@ -108,7 +102,7 @@ public class InMemoryRateLimitConfig {
                 long lastRefillTime = lastRefill.get();
                 long timePassed = now - lastRefillTime;
                 
-                if (timePassed > 1000) { // Refill every second
+                if (timePassed > 1000) {
                     int tokensToAdd = (int) (timePassed / 1000) * refillRate;
                     if (tokensToAdd > 0 && lastRefill.compareAndSet(lastRefillTime, now)) {
                         tokens.updateAndGet(current -> Math.min(capacity, current + tokensToAdd));
