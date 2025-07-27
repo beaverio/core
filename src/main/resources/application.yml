@@ -31,7 +31,8 @@ spring:
 logging:
   level:
     com.beaver.core: DEBUG
-    '[org.springframework.cloud.gateway]': TRACE
+    org.springframework.cloud.gateway: INFO
+    org.springframework.cloud.gateway.handler.FilteringWebHandler: WARN
 
 jwt:
   secret: ${JWT_SECRET}
