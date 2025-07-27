@@ -14,6 +14,8 @@ import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import java.util.ArrayList;
 import java.util.Date;
@@ -22,8 +24,9 @@ import java.util.Map;
 
 @RefreshScope
 @Component
-@Slf4j
 public class AuthenticationFilter extends AbstractGatewayFilterFactory<AuthenticationFilter.Config> {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthenticationFilter.class);
 
     @Autowired
     private final RouterValidator routerValidator;
@@ -48,7 +51,7 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                 
                 if (token == null) {
                     // Return 401 instead of throwing RuntimeException
-                    log.error("Missing JWT token in cookies");
+                    log.warn("Missing JWT token in cookies for request to: {}", exchange.getRequest().getURI().getPath());
                     return handleUnauthorized(exchange.getResponse(), "Missing JWT token in cookies", exchange.getRequest().getURI().toString());
                 }
 
@@ -56,8 +59,8 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                     jwtTokenUtil.validateTokenFromCookie(token);
                 }
                 catch (Exception ex) {
-                    log.error("Error Validating JWT Token", ex);
-                    return handleUnauthorized(exchange.getResponse(), ex.getLocalizedMessage(), exchange.getRequest().getURI().toString());
+                    log.warn("JWT token validation failed for request to: {}", exchange.getRequest().getURI().getPath());
+                    return handleUnauthorized(exchange.getResponse(), "Invalid or expired JWT token", exchange.getRequest().getURI().toString());
                 }
             }
 
