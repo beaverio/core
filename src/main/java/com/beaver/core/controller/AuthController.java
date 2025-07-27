@@ -2,6 +2,8 @@ package com.beaver.core.controller;
 
 import com.beaver.core.dto.*;
 import com.beaver.core.security.JwtTokenUtil;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -33,8 +35,19 @@ public class AuthController {
                     // Generate JWT token using the user ID
                     String token = jwtTokenUtil.generateToken(user.id());
                     
-                    AuthResponse response = new AuthResponse("Login successful", user.id(), user.email(), user.name(), token);
-                    return Mono.just(ResponseEntity.ok(response));
+                    // Create HTTP-only cookie for security
+                    ResponseCookie cookie = ResponseCookie.from("access_token", token)
+                            .httpOnly(true)
+                            .secure(false) // Set to true in production with HTTPS
+                            .sameSite("Strict")
+                            .maxAge(20 * 60) // 20 minutes (same as JWT validity)
+                            .path("/")
+                            .build();
+                    
+                    AuthResponse response = new AuthResponse("Login successful", user.id(), user.email(), user.name(), null);
+                    return Mono.just(ResponseEntity.ok()
+                            .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                            .body(response));
                 })
                 .defaultIfEmpty(ResponseEntity.status(401).body(new AuthResponse("Invalid credentials", null, null, null, null)));
     }
@@ -46,10 +59,38 @@ public class AuthController {
                     // Generate JWT token using the user ID
                     String token = jwtTokenUtil.generateToken(user.id());
                     
-                    AuthResponse response = new AuthResponse("Signup successful", user.id(), user.email(), user.name(), token);
-                    return Mono.just(ResponseEntity.ok(response));
+                    // Create HTTP-only cookie for security
+                    ResponseCookie cookie = ResponseCookie.from("access_token", token)
+                            .httpOnly(true)
+                            .secure(false) // Set to true in production with HTTPS
+                            .sameSite("Strict")
+                            .maxAge(20 * 60) // 20 minutes (same as JWT validity)
+                            .path("/")
+                            .build();
+                    
+                    AuthResponse response = new AuthResponse("Signup successful", user.id(), user.email(), user.name(), null);
+                    return Mono.just(ResponseEntity.ok()
+                            .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                            .body(response));
                 })
                 .defaultIfEmpty(ResponseEntity.status(400).body(new AuthResponse("User already exists", null, null, null, null)));
+    }
+    
+    @PostMapping("/logout")
+    public Mono<ResponseEntity<AuthResponse>> logout() {
+        // Create expired cookie to clear the token
+        ResponseCookie cookie = ResponseCookie.from("access_token", "")
+                .httpOnly(true)
+                .secure(false) // Set to true in production with HTTPS
+                .sameSite("Strict")
+                .maxAge(0) // Expire immediately
+                .path("/")
+                .build();
+        
+        AuthResponse response = new AuthResponse("Logout successful", null, null, null, null);
+        return Mono.just(ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(response));
     }
     
     

@@ -1,24 +1,24 @@
 package com.beaver.core.security;
 
 import com.beaver.core.config.JwtConfig;
-import com.beaver.core.model.ErrorResponseDto;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.core.io.buffer.DataBuffer;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.SerializationUtils;
 import reactor.core.publisher.Flux;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 
 @RefreshScope
 @Component
@@ -29,44 +29,70 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
     private final RouterValidator routerValidator;
     private final JwtTokenUtil jwtTokenUtil;
     private final JwtConfig jwtConfig;
+    private final ObjectMapper objectMapper;
 
-    public AuthenticationFilter(RouterValidator routerValidator, JwtTokenUtil jwtTokenUtil, JwtConfig config) {
+    public AuthenticationFilter(RouterValidator routerValidator, JwtTokenUtil jwtTokenUtil, JwtConfig config, ObjectMapper objectMapper) {
         super(Config.class);
         this.routerValidator = routerValidator;
         this.jwtTokenUtil = jwtTokenUtil;
         this.jwtConfig = config;
+        this.objectMapper = objectMapper;
     }
 
     @Override
     public GatewayFilter apply(Config config) {
         return ((exchange, chain) -> {
             if (routerValidator.isSecured.test(exchange.getRequest()) && !jwtConfig.isAuthDisabled()) {
-                if (!exchange.getRequest().getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
-                    throw new RuntimeException("Missing Authorisation Header");
+                // Extract JWT token from cookies instead of Authorization header
+                String token = extractTokenFromCookies(exchange.getRequest());
+                
+                if (token == null) {
+                    // Return 401 instead of throwing RuntimeException
+                    log.error("Missing JWT token in cookies");
+                    return handleUnauthorized(exchange.getResponse(), "Missing JWT token in cookies", exchange.getRequest().getURI().toString());
                 }
 
-                String authHeader = Objects.requireNonNull(exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION)).get(0);
                 try {
-                    jwtTokenUtil.validateToken(authHeader);
+                    jwtTokenUtil.validateTokenFromCookie(token);
                 }
                 catch (Exception ex) {
-                    log.error("Error Validating Authentication Header", ex);
-                    List<String> details = new ArrayList<>();
-                    details.add(ex.getLocalizedMessage());
-                    ErrorResponseDto error = new ErrorResponseDto(new Date(), HttpStatus.UNAUTHORIZED.value(), "UNAUTHORIZED", details, exchange.getRequest().getURI().toString());
-                    ServerHttpResponse response = exchange.getResponse();
-
-                    byte[] bytes = SerializationUtils.serialize(error);
-
-                    DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
-                    response.writeWith(Flux.just(buffer));
-                    response.setStatusCode(HttpStatus.UNAUTHORIZED);
-                    return response.setComplete();
+                    log.error("Error Validating JWT Token", ex);
+                    return handleUnauthorized(exchange.getResponse(), ex.getLocalizedMessage(), exchange.getRequest().getURI().toString());
                 }
             }
 
             return chain.filter(exchange);
         });
+    }
+    
+    private reactor.core.publisher.Mono<Void> handleUnauthorized(ServerHttpResponse response, String message, String path) {
+        response.setStatusCode(HttpStatus.UNAUTHORIZED);
+        response.getHeaders().add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+        
+        Map<String, Object> errorResponse = Map.of(
+            "timestamp", new Date().toString(),
+            "status", 401,
+            "error", "UNAUTHORIZED",
+            "message", message,
+            "path", path
+        );
+        
+        try {
+            String json = objectMapper.writeValueAsString(errorResponse);
+            DataBuffer buffer = response.bufferFactory().wrap(json.getBytes());
+            return response.writeWith(Flux.just(buffer));
+        } catch (JsonProcessingException e) {
+            log.error("Error creating JSON response", e);
+            DataBuffer buffer = response.bufferFactory().wrap("{\"error\":\"Unauthorized\"}".getBytes());
+            return response.writeWith(Flux.just(buffer));
+        }
+    }
+    
+    private String extractTokenFromCookies(org.springframework.http.server.reactive.ServerHttpRequest request) {
+        if (request.getCookies().containsKey("access_token")) {
+            return request.getCookies().getFirst("access_token").getValue();
+        }
+        return null;
     }
 
     public static class Config {
