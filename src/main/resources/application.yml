@@ -11,7 +11,7 @@ spring:
     gateway:
       routes:
         - id: user-service
-          uri: ${USER_SERVICE_URL:http://localhost:8081}
+          uri: ${user-service.url}
           predicates:
             - Path=/v1/users/**
           filters:
@@ -39,3 +39,7 @@ jwt:
   accessTokenValidity: ${JWT_ACCESS_VALIDITY}
   refreshTokenValidity: ${JWT_REFRESH_VALIDITY}
   authDisabled: false
+
+# Downstream Services
+user-service:
+  url: ${USER_SERVICE_URL:http://localhost:8081}
