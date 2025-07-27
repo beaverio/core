@@ -40,4 +40,4 @@ logging:
 jwt:
   secret: ${JWT_SECRET:my-super-secret-jwt-key-for-development-only-please-change-in-production}
   validity: ${JWT_VALIDITY:20}  # 20 minutes
-  authDisabled: ${JWT_AUTH_DISABLED:true}
+  authDisabled: ${JWT_AUTH_DISABLED:false}

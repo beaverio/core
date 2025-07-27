@@ -10,10 +10,13 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.SignatureException;
+import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException;
 import io.jsonwebtoken.UnsupportedJwtException;
-import io.jsonwebtoken.SignatureAlgorithm;
 import org.springframework.stereotype.Component;
+
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 
 @Component
 public class JwtTokenUtil {
@@ -25,12 +28,19 @@ public class JwtTokenUtil {
     }
 
     public String generateToken(String id) {
-        Claims claims = Jwts.claims().setSubject(id);
+        Claims claims = Jwts.claims().subject(id).build();
         long nowMillis = System.currentTimeMillis();
         long expMillis = nowMillis + config.getValidity() * 1000 * 60;
         Date exp = new Date(expMillis);
-        return Jwts.builder().setClaims(claims).setIssuedAt(new Date(nowMillis)).setExpiration(exp)
-                .signWith(SignatureAlgorithm.HS512, config.getSecret()).compact();
+        
+        SecretKey key = Keys.hmacShaKeyFor(config.getSecret().getBytes(StandardCharsets.UTF_8));
+        
+        return Jwts.builder()
+                .claims(claims)
+                .issuedAt(new Date(nowMillis))
+                .expiration(exp)
+                .signWith(key)
+                .compact();
     }
 
     public void validateToken(final String header) throws JwtTokenMalformedException, JwtTokenMissingException, JwtTokenIncorrectStructureException {
@@ -40,7 +50,8 @@ public class JwtTokenUtil {
                 throw new JwtTokenIncorrectStructureException("Incorrect Authentication Structure");
             }
 
-            Jwts.parser().setSigningKey(config.getSecret()).parseClaimsJws(parts[1]);
+            SecretKey key = Keys.hmacShaKeyFor(config.getSecret().getBytes(StandardCharsets.UTF_8));
+            Jwts.parser().verifyWith(key).build().parseSignedClaims(parts[1]);
         } catch (SignatureException ex) {
             throw new JwtTokenMalformedException("Invalid JWT signature");
         } catch (MalformedJwtException ex) {
