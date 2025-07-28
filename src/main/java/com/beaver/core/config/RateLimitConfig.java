@@ -13,10 +13,6 @@ import java.util.concurrent.atomic.AtomicLong;
 @Configuration
 public class RateLimitConfig {
 
-    /**
-     * Rate limiting based on IP address for authentication endpoints
-     * This prevents brute force attacks and abuse of auth endpoints
-     */
     @Bean
     public KeyResolver ipAddressKeyResolver() {
         return exchange -> {
@@ -27,19 +23,11 @@ public class RateLimitConfig {
         };
     }
 
-    /**
-     * In-memory rate limiter as fallback when Redis is not available
-     * This provides basic rate limiting functionality for authentication endpoints
-     */
     @Bean
     public RateLimiter inMemoryRateLimiter() {
         return new InMemoryRateLimiter();
     }
     
-    /**
-     * Simple in-memory rate limiter implementation
-     * Uses sliding window approach with configurable rates
-     */
     static class InMemoryRateLimiter implements RateLimiter<Object> {
         
         private final ConcurrentHashMap<String, TokenBucket> buckets = new ConcurrentHashMap<>();
@@ -75,10 +63,7 @@ public class RateLimitConfig {
         public Object newConfig() {
             return new Object();
         }
-        
-        /**
-         * Simple token bucket implementation for rate limiting
-         */
+
         static class TokenBucket {
             private final int capacity;
             private final int refillRate;
