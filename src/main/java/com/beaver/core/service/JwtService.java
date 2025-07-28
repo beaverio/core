@@ -52,16 +52,8 @@ public class JwtService {
                 .compact();
     }
     
-    public Mono<String> extractUsername(String token) {
-        return extractClaim(token, claims -> claims.get("email", String.class));
-    }
-    
     public Mono<String> extractUserId(String token) {
         return extractClaim(token, claims -> claims.get("userId", String.class));
-    }
-    
-    public Mono<String> extractUserName(String token) {
-        return extractClaim(token, claims -> claims.get("name", String.class));
     }
     
     public Mono<String> extractTokenType(String token) {

@@ -1,10 +1,11 @@
 package com.beaver.core.config;
 
+import com.beaver.core.dto.ErrorResponse;
 import com.beaver.core.exception.AuthenticationFailedException;
 import com.beaver.core.exception.JwtTokenIncorrectStructureException;
 import com.beaver.core.exception.JwtTokenMalformedException;
 import com.beaver.core.exception.JwtTokenMissingException;
-import com.beaver.core.dto.ErrorResponseDto;
+import com.beaver.core.exception.RateLimitExceededException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(WebExchangeBindException.class)
-    public Mono<ResponseEntity<ErrorResponseDto>> handleValidationErrors(
+    public Mono<ResponseEntity<ErrorResponse>> handleValidationErrors(
             WebExchangeBindException ex, ServerWebExchange exchange) {
         List<String> details = ex.getBindingResult()
                 .getFieldErrors()
@@ -28,7 +29,7 @@ public class GlobalExceptionHandler {
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .collect(Collectors.toList());
 
-        ErrorResponseDto errorResponse = ErrorResponseDto.of(
+        ErrorResponse errorResponse = ErrorResponse.of(
                 HttpStatus.BAD_REQUEST.value(),
                 "Validation Failed",
                 "Invalid input data",
@@ -49,9 +50,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(AuthenticationFailedException.class)
-    public Mono<ResponseEntity<ErrorResponseDto>> handleAuthenticationFailed(
+    public Mono<ResponseEntity<ErrorResponse>> handleAuthenticationFailed(
             AuthenticationFailedException ex, ServerWebExchange exchange) {
-        ErrorResponseDto errorResponse = ErrorResponseDto.of(
+        ErrorResponse errorResponse = ErrorResponse.of(
                 HttpStatus.UNAUTHORIZED.value(),
                 "Authentication Failed",
                 ex.getMessage(),
@@ -62,9 +63,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({JwtTokenMalformedException.class, JwtTokenIncorrectStructureException.class})
-    public Mono<ResponseEntity<ErrorResponseDto>> handleJwtTokenErrors(
+    public Mono<ResponseEntity<ErrorResponse>> handleJwtTokenErrors(
             Exception ex, ServerWebExchange exchange) {
-        ErrorResponseDto errorResponse = ErrorResponseDto.of(
+        ErrorResponse errorResponse = ErrorResponse.of(
                 HttpStatus.UNAUTHORIZED.value(),
                 "Invalid Token",
                 ex.getMessage(),
@@ -75,9 +76,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(JwtTokenMissingException.class)
-    public Mono<ResponseEntity<ErrorResponseDto>> handleJwtTokenMissing(
+    public Mono<ResponseEntity<ErrorResponse>> handleJwtTokenMissing(
             JwtTokenMissingException ex, ServerWebExchange exchange) {
-        ErrorResponseDto errorResponse = ErrorResponseDto.of(
+        ErrorResponse errorResponse = ErrorResponse.of(
                 HttpStatus.UNAUTHORIZED.value(),
                 "Token Missing",
                 ex.getMessage(),
@@ -88,9 +89,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public Mono<ResponseEntity<ErrorResponseDto>> handleIllegalArgument(
+    public Mono<ResponseEntity<ErrorResponse>> handleIllegalArgument(
             IllegalArgumentException ex, ServerWebExchange exchange) {
-        ErrorResponseDto errorResponse = ErrorResponseDto.of(
+        ErrorResponse errorResponse = ErrorResponse.of(
                 HttpStatus.BAD_REQUEST.value(),
                 "Invalid Request",
                 ex.getMessage(),
@@ -100,10 +101,23 @@ public class GlobalExceptionHandler {
         return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse));
     }
 
+    @ExceptionHandler(RateLimitExceededException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleRateLimitExceeded(
+            RateLimitExceededException ex, ServerWebExchange exchange) {
+        ErrorResponse errorResponse = ErrorResponse.of(
+                HttpStatus.TOO_MANY_REQUESTS.value(),
+                "Rate Limit Exceeded",
+                ex.getMessage(),
+                exchange.getRequest().getPath().value()
+        );
+
+        return Mono.just(ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorResponse));
+    }
+
     @ExceptionHandler(Exception.class)
-    public Mono<ResponseEntity<ErrorResponseDto>> handleGenericException(
+    public Mono<ResponseEntity<ErrorResponse>> handleGenericException(
             Exception ex, ServerWebExchange exchange) {
-        ErrorResponseDto errorResponse = ErrorResponseDto.of(
+        ErrorResponse errorResponse = ErrorResponse.of(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Internal Server Error",
                 "An unexpected error occurred",

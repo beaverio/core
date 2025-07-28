@@ -1,23 +1,17 @@
 package com.beaver.core.security;
 
 import com.beaver.core.config.JwtConfig;
+import com.beaver.core.exception.JwtTokenMalformedException;
+import com.beaver.core.exception.JwtTokenMissingException;
 import com.beaver.core.service.JwtService;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
-import org.springframework.core.io.buffer.DataBuffer;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import reactor.core.publisher.Flux;
-import java.util.Date;
-import java.util.Map;
+import reactor.core.publisher.Mono;
 
 @RefreshScope
 @Component
@@ -27,13 +21,11 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
 
     private final JwtService jwtService;
     private final JwtConfig jwtConfig;
-    private final ObjectMapper objectMapper;
 
-    public AuthenticationFilter(JwtService jwtService, JwtConfig jwtConfig, ObjectMapper objectMapper) {
+    public AuthenticationFilter(JwtService jwtService, JwtConfig jwtConfig) {
         super(Config.class);
         this.jwtService = jwtService;
         this.jwtConfig = jwtConfig;
-        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -44,7 +36,7 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                 
                 if (token == null) {
                     log.warn("Access token is missing for request to: {}", exchange.getRequest().getURI().getPath());
-                    return handleUnauthorized(exchange.getResponse(), "Access token is missing", exchange.getRequest().getURI().toString());
+                    return Mono.error(new JwtTokenMissingException("Access token is missing"));
                 }
 
                 // Reactive JWT validation
@@ -54,40 +46,20 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                             return chain.filter(exchange);
                         } else {
                             log.warn("JWT token validation failed for request to: {}", exchange.getRequest().getURI().getPath());
-                            return handleUnauthorized(exchange.getResponse(), "Invalid or expired JWT token", exchange.getRequest().getURI().toString());
+                            return Mono.error(new JwtTokenMalformedException("Invalid or expired JWT token"));
                         }
                     })
                     .onErrorResume(ex -> {
+                        if (ex instanceof JwtTokenMissingException || ex instanceof JwtTokenMalformedException) {
+                            return Mono.error(ex);
+                        }
                         log.warn("JWT token validation error for request to: {}", exchange.getRequest().getURI().getPath(), ex);
-                        return handleUnauthorized(exchange.getResponse(), "Invalid or expired JWT token", exchange.getRequest().getURI().toString());
+                        return Mono.error(new JwtTokenMalformedException("Invalid or expired JWT token"));
                     });
             }
 
             return chain.filter(exchange);
         });
-    }
-    
-    private reactor.core.publisher.Mono<Void> handleUnauthorized(ServerHttpResponse response, String message, String path) {
-        response.setStatusCode(HttpStatus.UNAUTHORIZED);
-        response.getHeaders().add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
-        
-        Map<String, Object> errorResponse = Map.of(
-            "timestamp", new Date().toString(),
-            "status", 401,
-            "error", "UNAUTHORIZED",
-            "message", message,
-            "path", path
-        );
-        
-        try {
-            String json = objectMapper.writeValueAsString(errorResponse);
-            DataBuffer buffer = response.bufferFactory().wrap(json.getBytes());
-            return response.writeWith(Flux.just(buffer));
-        } catch (JsonProcessingException e) {
-            log.error("Error creating JSON response", e);
-            DataBuffer buffer = response.bufferFactory().wrap("{\"error\":\"Unauthorized\"}".getBytes());
-            return response.writeWith(Flux.just(buffer));
-        }
     }
     
     private String extractTokenFromCookies(org.springframework.http.server.reactive.ServerHttpRequest request) {

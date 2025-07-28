@@ -1,10 +1,7 @@
 package com.beaver.core.security;
 
+import com.beaver.core.exception.RateLimitExceededException;
 import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;
-import org.springframework.core.io.buffer.DataBuffer;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -23,27 +20,15 @@ public class GatewayRateLimitWebFilter implements WebFilter {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String clientIp = getClientIp(exchange);
-
-        // Apply rate limiting to ALL requests - no exceptions
+        
         return rateLimiter.isAllowed("gateway", clientIp)
                 .flatMap(response -> {
                     if (response.isAllowed()) {
                         return chain.filter(exchange);
                     } else {
-                        return handleRateLimited(exchange);
+                        return Mono.error(new RateLimitExceededException("Too many requests. Please slow down."));
                     }
                 });
-    }
-
-    private Mono<Void> handleRateLimited(ServerWebExchange exchange) {
-        ServerHttpResponse response = exchange.getResponse();
-        response.setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
-        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-
-        String body = "{\"error\":\"Too many requests. Please slow down.\",\"status\":429,\"retryAfter\":\"30 seconds\"}";
-        DataBuffer buffer = response.bufferFactory().wrap(body.getBytes());
-
-        return response.writeWith(Mono.just(buffer));
     }
 
     private String getClientIp(ServerWebExchange exchange) {

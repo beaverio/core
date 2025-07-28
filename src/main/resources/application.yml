@@ -16,6 +16,7 @@ spring:
             - Path=/v1/users/**
           filters:
             - AuthenticationFilter
+            - UserContextFilter
             - name: StripPrefix
               args:
                 parts: 1

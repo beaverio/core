@@ -12,7 +12,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ErrorResponseDto {
+public class ErrorResponse {
     private LocalDateTime timestamp;
     private int status;
     private String error;
@@ -20,8 +20,8 @@ public class ErrorResponseDto {
     private List<String> details;
     private String path;
 
-    public static ErrorResponseDto of(int status, String error, String message, String path) {
-        return ErrorResponseDto.builder()
+    public static ErrorResponse of(int status, String error, String message, String path) {
+        return ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(status)
                 .error(error)
@@ -30,8 +30,8 @@ public class ErrorResponseDto {
                 .build();
     }
 
-    public static ErrorResponseDto of(int status, String error, String message, List<String> details, String path) {
-        return ErrorResponseDto.builder()
+    public static ErrorResponse of(int status, String error, String message, List<String> details, String path) {
+        return ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(status)
                 .error(error)

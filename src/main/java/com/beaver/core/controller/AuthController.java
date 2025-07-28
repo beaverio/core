@@ -32,19 +32,14 @@ public class AuthController {
     @PostMapping("/login")
     public Mono<ResponseEntity<AuthResponse>> login(@RequestBody LoginRequest request) {
         return userServiceClient.validateCredentials(request.email(), request.password())
-                .flatMap(userResponse -> {
-                    if (userResponse.isValid()) {
-                        return createAuthResponse(
-                                User.builder()
-                                    .id(userResponse.userId())
-                                    .email(userResponse.email())
-                                    .name(userResponse.name())
-                                        .build()
-                                , "Login successful");
-                    } else {
-                        return Mono.just(ResponseEntity.status(401)
-                                .body(AuthResponse.builder().message("Invalid credentials").build()));
-                    }
+                .flatMap(userDto -> {
+                    return createAuthResponse(
+                            User.builder()
+                                .id(userDto.id().toString())
+                                .email(userDto.email())
+                                .name(userDto.name())
+                                .build()
+                            , "Login successful");
                 });
     }
 
@@ -53,17 +48,13 @@ public class AuthController {
         return userServiceClient.createUser(request.email(), request.password(), request.name())
                 .then(Mono.defer(() -> {
                     return userServiceClient.validateCredentials(request.email(), request.password())
-                            .flatMap(userResponse -> {
-                                if (userResponse.isValid()) {
-                                    return createAuthResponse(
-                                            User.builder()
-                                                .id(userResponse.userId())
-                                                .email(userResponse.email())
-                                                .name(userResponse.name()).build(),
-                                            "Signup successful");
-                                } else {
-                                    return Mono.error(new AuthenticationFailedException("Failed to validate newly created user"));
-                                }
+                            .flatMap(userDto -> {
+                                return createAuthResponse(
+                                        User.builder()
+                                            .id(userDto.id().toString())
+                                            .email(userDto.email())
+                                            .name(userDto.name()).build(),
+                                        "Signup successful");
                             });
                 }));
     }
@@ -111,34 +102,33 @@ public class AuthController {
         try {
             UUID userUuid = UUID.fromString(userId);
             return userServiceClient.getUserById(userUuid)
-                    .flatMap(userDetails -> {
-                        if (userDetails.found() && userDetails.isActive()) {
+                    .flatMap(userDto -> {
+                        if (userDto.active()) {
                             String newAccessToken = jwtService.generateAccessToken(
-                                    userDetails.userId(),
-                                    userDetails.email(),
-                                    userDetails.name()
+                                    userDto.id().toString(),
+                                    userDto.email(),
+                                    userDto.name()
                             );
 
                             ResponseCookie accessCookie = createAccessTokenCookie(newAccessToken);
 
                             AuthResponse response = AuthResponse.builder()
                                     .message("Token refreshed successfully")
-                                    .userId(userDetails.userId())
-                                    .email(userDetails.email())
-                                    .name(userDetails.name())
+                                    .userId(userDto.id().toString())
+                                    .email(userDto.email())
+                                    .name(userDto.name())
                                     .build();
 
                             return Mono.just(ResponseEntity.ok()
                                     .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                                     .body(response));
                         } else {
-                            return Mono.just(ResponseEntity.status(401)
-                                    .body(AuthResponse.builder().message("User not found or inactive").build()));
+                            log.warn("User account is inactive for userId: {}", userDto.id());
+                            return Mono.error(new AuthenticationFailedException("User account is inactive"));
                         }
                     });
         } catch (IllegalArgumentException e) {
-            return Mono.just(ResponseEntity.status(401)
-                    .body(AuthResponse.builder().message("Invalid user ID in token").build()));
+            return Mono.error(new AuthenticationFailedException("Invalid user ID in token"));
         }
     }
 
