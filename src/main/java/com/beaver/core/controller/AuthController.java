@@ -32,38 +32,37 @@ public class AuthController {
     @PostMapping("/login")
     public Mono<ResponseEntity<AuthResponse>> login(@RequestBody LoginRequest request) {
         return userServiceClient.validateCredentials(request.email(), request.password())
-                .flatMap(userDto -> {
-                    return createAuthResponse(
+                .flatMap(userMap ->
+                        createAuthResponse(
                             User.builder()
-                                .id(userDto.id().toString())
-                                .email(userDto.email())
-                                .name(userDto.name())
-                                .build()
-                            , "Login successful");
-                });
+                                    .id(userMap.get("id").toString())
+                                    .email((String) userMap.get("email"))
+                                    .name((String) userMap.get("name"))
+                                    .build()
+                            , "Login successful")
+                );
     }
 
     @PostMapping("/signup")
     public Mono<ResponseEntity<AuthResponse>> signup(@RequestBody SignupRequest request) {
         return userServiceClient.createUser(request.email(), request.password(), request.name())
-                .then(Mono.defer(() -> {
-                    return userServiceClient.validateCredentials(request.email(), request.password())
-                            .flatMap(userDto -> {
-                                return createAuthResponse(
-                                        User.builder()
-                                            .id(userDto.id().toString())
-                                            .email(userDto.email())
-                                            .name(userDto.name()).build(),
-                                        "Signup successful");
-                            });
-                }));
+                .then(Mono.defer(() ->
+                        userServiceClient.validateCredentials(request.email(), request.password())
+                                .flatMap(userMap ->
+                                        createAuthResponse(
+                                                User.builder()
+                                                        .id(userMap.get("id").toString())
+                                                        .email((String) userMap.get("email"))
+                                                        .name((String) userMap.get("name")).build(),
+                                                "Signup successful"))
+                ));
     }
     
     @PostMapping("/logout")
     public Mono<ResponseEntity<AuthResponse>> logout() {
         ResponseCookie accessCookie = ResponseCookie.from("access_token", "")
                 .httpOnly(true)
-                .secure(false)
+                .secure(true)
                 .sameSite("Strict")
                 .maxAge(0)
                 .path("/")
@@ -71,7 +70,7 @@ public class AuthController {
         
         ResponseCookie refreshCookie = ResponseCookie.from("refresh_token", "")
                 .httpOnly(true)
-                .secure(false)
+                .secure(true)
                 .sameSite("Strict")
                 .maxAge(0)
                 .path("/")
@@ -88,42 +87,43 @@ public class AuthController {
     @PostMapping("/refresh")
     public Mono<ResponseEntity<AuthResponse>> refresh(@CookieValue(value = "refresh_token", required = false) String refreshToken) {
         if (refreshToken == null || refreshToken.trim().isEmpty()) {
-            return Mono.just(ResponseEntity.status(401).body(AuthResponse.builder().message("Refresh token is missing").build()));
+            return Mono.error(new AuthenticationFailedException("Refresh token is missing"));
         }
         
         return jwtService.isValidRefreshToken(refreshToken)
                 .filter(isValid -> isValid)
                 .flatMap(valid -> jwtService.extractUserId(refreshToken)
                         .flatMap(this::generateNewAccessToken))
-                .switchIfEmpty(Mono.just(ResponseEntity.status(401).body(AuthResponse.builder().message("Invalid refresh token").build())));
+                .switchIfEmpty(Mono.error(new AuthenticationFailedException("Invalid refresh token")));
     }
 
     private Mono<ResponseEntity<AuthResponse>> generateNewAccessToken(String userId) {
         try {
             UUID userUuid = UUID.fromString(userId);
             return userServiceClient.getUserById(userUuid)
-                    .flatMap(userDto -> {
-                        if (userDto.active()) {
+                    .flatMap(userMap -> {
+                        Boolean isActive = (Boolean) userMap.get("active");
+                        if (Boolean.TRUE.equals(isActive)) {
                             String newAccessToken = jwtService.generateAccessToken(
-                                    userDto.id().toString(),
-                                    userDto.email(),
-                                    userDto.name()
+                                    userMap.get("id").toString(),
+                                    (String) userMap.get("email"),
+                                    (String) userMap.get("name")
                             );
 
                             ResponseCookie accessCookie = createAccessTokenCookie(newAccessToken);
 
                             AuthResponse response = AuthResponse.builder()
                                     .message("Token refreshed successfully")
-                                    .userId(userDto.id().toString())
-                                    .email(userDto.email())
-                                    .name(userDto.name())
+                                    .userId(userMap.get("id").toString())
+                                    .email((String) userMap.get("email"))
+                                    .name((String) userMap.get("name"))
                                     .build();
 
                             return Mono.just(ResponseEntity.ok()
                                     .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                                     .body(response));
                         } else {
-                            log.warn("User account is inactive for userId: {}", userDto.id());
+                            log.warn("User account is inactive for userId: {}", userMap.get("id"));
                             return Mono.error(new AuthenticationFailedException("User account is inactive"));
                         }
                     });

@@ -2,7 +2,6 @@ package com.beaver.core.client;
 
 import com.beaver.core.dto.LoginRequest;
 import com.beaver.core.dto.SignupRequest;
-import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,7 +9,9 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import org.springframework.core.ParameterizedTypeReference;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -30,7 +31,7 @@ public class UserServiceClient {
         return webClientBuilder.baseUrl(userServiceBaseUrl).build();
     }
 
-    public Mono<UserDto> validateCredentials(String email, String password) {
+    public Mono<Map<String, Object>> validateCredentials(String email, String password) {
         LoginRequest request = LoginRequest.builder()
                 .email(email)
                 .password(password)
@@ -51,10 +52,10 @@ public class UserServiceClient {
                                         ))
                                 )
                 )
-                .bodyToMono(UserDto.class);
+                .bodyToMono(new ParameterizedTypeReference<>() {});
     }
 
-    public Mono<UserDto> getUserById(UUID userId) {
+    public Mono<Map<String, Object>> getUserById(UUID userId) {
         return getUserServiceWebClient()
                 .get()
                 .uri("/users/internal/users/{userId}", userId.toString())
@@ -69,7 +70,7 @@ public class UserServiceClient {
                                         ))
                                 )
                 )
-                .bodyToMono(UserDto.class);
+                .bodyToMono(new ParameterizedTypeReference<>() {});
     }
 
     public Mono<Void> createUser(String email, String password, String name) {
@@ -94,16 +95,5 @@ public class UserServiceClient {
                                 )))
                 )
                 .bodyToMono(Void.class);
-    }
-
-    @Builder
-    public record UserDto(
-            UUID id,
-            String email,
-            String name,
-            boolean active,
-            java.time.LocalDateTime createdAt,
-            java.time.LocalDateTime updatedAt
-    ) {
     }
 }
