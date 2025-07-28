@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/auth")
 @Slf4j
@@ -20,13 +22,6 @@ public class AuthController {
     private final JwtService jwtService;
     private final JwtConfig jwtConfig;
 
-    private static final User MOCK_USER = new User(
-        "550e8400-e29b-41d4-a716-446655440000", 
-        "admin@example.com",
-        "Admin User",
-        "password"
-    );
-    
     public AuthController(UserServiceClient userServiceClient, JwtService jwtService, JwtConfig jwtConfig) {
         this.userServiceClient = userServiceClient;
         this.jwtService = jwtService;
@@ -55,22 +50,20 @@ public class AuthController {
     @PostMapping("/signup")
     public Mono<ResponseEntity<AuthResponse>> signup(@RequestBody SignupRequest request) {
         return userServiceClient.createUser(request.email(), request.password(), request.name())
-                .then(Mono.defer(() -> {
-                    return userServiceClient.validateCredentials(request.email(), request.password())
-                            .flatMap(userResponse -> {
-                                if (userResponse.isValid()) {
-                                    return createAuthResponse(
-                                            User.builder()
+                .then(Mono.defer(() -> userServiceClient.validateCredentials(request.email(), request.password())
+                        .flatMap(userResponse -> {
+                            if (userResponse.isValid()) {
+                                return createAuthResponse(
+                                        User.builder()
                                                 .id(userResponse.userId())
                                                 .email(userResponse.email())
                                                 .name(userResponse.name()).build(),
-                                            "Signup successful");
-                                } else {
-                                    return Mono.just(ResponseEntity.status(401)
-                                            .body(AuthResponse.builder().message("Failed to validate newly created user").build()));
-                                }
-                            });
-                }))
+                                        "Signup successful");
+                            } else {
+                                return Mono.just(ResponseEntity.status(401)
+                                        .body(AuthResponse.builder().message("Failed to validate newly created user").build()));
+                            }
+                        })))
                 .onErrorResume(error -> {
                     if (error.getMessage() != null && error.getMessage().contains("400 Bad Request")) {
                         return Mono.just(ResponseEntity.status(409)
@@ -114,40 +107,46 @@ public class AuthController {
             return Mono.just(ResponseEntity.status(401).body(AuthResponse.builder().message("Refresh token is missing").build()));
         }
         
-        // Validate refresh token using reactive methods
         return jwtService.isValidRefreshToken(refreshToken)
                 .filter(isValid -> isValid)
-                .flatMap(valid -> {
-                    // Extract user ID from refresh token
-                    // For refresh, we need to get user details to generate new access token
-                    // Since we only have userId from refresh token, we'll use mock data for now
-                    // TODO: Call user service to get full user details
-                    return jwtService.extractUserId(refreshToken)
-                            .flatMap(this::generateNewAccessToken);
-                })
+                .flatMap(valid -> jwtService.extractUserId(refreshToken)
+                        .flatMap(this::generateNewAccessToken))
                 .switchIfEmpty(Mono.just(ResponseEntity.status(401).body(AuthResponse.builder().message("Invalid refresh token").build())));
     }
 
     private Mono<ResponseEntity<AuthResponse>> generateNewAccessToken(String userId) {
-        // For now, use mock user data - TODO: Replace with actual user service call
-        if (MOCK_USER.id().equals(userId)) {
-            String newAccessToken = jwtService.generateAccessToken(MOCK_USER.id(), MOCK_USER.email(), MOCK_USER.name());
+        try {
+            UUID userUuid = UUID.fromString(userId);
+            return userServiceClient.getUserById(userUuid)
+                    .flatMap(userDetails -> {
+                        if (userDetails.found() && userDetails.isActive()) {
+                            String newAccessToken = jwtService.generateAccessToken(
+                                    userDetails.userId(),
+                                    userDetails.email(),
+                                    userDetails.name()
+                            );
 
-            ResponseCookie accessCookie = createAccessTokenCookie(newAccessToken);
+                            ResponseCookie accessCookie = createAccessTokenCookie(newAccessToken);
 
-            AuthResponse response = AuthResponse.builder()
-                    .message("Token refreshed successfully")
-                    .userId(userId)
-                    .email(MOCK_USER.email())
-                    .name(MOCK_USER.name())
-                    .build();
+                            AuthResponse response = AuthResponse.builder()
+                                    .message("Token refreshed successfully")
+                                    .userId(userDetails.userId())
+                                    .email(userDetails.email())
+                                    .name(userDetails.name())
+                                    .build();
 
-            return Mono.just(ResponseEntity.ok()
-                    .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
-                    .body(response));
+                            return Mono.just(ResponseEntity.ok()
+                                    .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                                    .body(response));
+                        } else {
+                            return Mono.just(ResponseEntity.status(401)
+                                    .body(AuthResponse.builder().message("User not found or inactive").build()));
+                        }
+                    });
+        } catch (IllegalArgumentException e) {
+            return Mono.just(ResponseEntity.status(401)
+                    .body(AuthResponse.builder().message("Invalid user ID in token").build()));
         }
-
-        return Mono.just(ResponseEntity.status(401).body(AuthResponse.builder().message("User not found").build()));
     }
 
     private Mono<ResponseEntity<AuthResponse>> createAuthResponse(
@@ -176,9 +175,9 @@ public class AuthController {
     private ResponseCookie createAccessTokenCookie(String accessToken) {
         return ResponseCookie.from("access_token", accessToken)
                 .httpOnly(true)
-                .secure(false) // Set to true in production with HTTPS
+                .secure(true)
                 .sameSite("Strict")
-                .maxAge(jwtConfig.getAccessTokenValidity() * 60) // Convert minutes to seconds
+                .maxAge(jwtConfig.getAccessTokenValidity() * 60)
                 .path("/")
                 .build();
     }
@@ -186,9 +185,9 @@ public class AuthController {
     private ResponseCookie createRefreshTokenCookie(String refreshToken) {
         return ResponseCookie.from("refresh_token", refreshToken)
                 .httpOnly(true)
-                .secure(false) // Set to true in production with HTTPS
+                .secure(true)
                 .sameSite("Strict")
-                .maxAge(jwtConfig.getRefreshTokenValidity() * 60) // Convert minutes to seconds
+                .maxAge(jwtConfig.getRefreshTokenValidity() * 60)
                 .path("/")
                 .build();
     }

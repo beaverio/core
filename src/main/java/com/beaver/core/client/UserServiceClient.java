@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.UUID;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -41,6 +43,17 @@ public class UserServiceClient {
                 .retrieve()
                 .bodyToMono(UserCredentialsResponse.class)
                 .onErrorReturn(UserCredentialsResponse.invalid());
+    }
+
+    public Mono<UserDetailsResponse> getUserById(UUID userId) {
+        return getUserServiceWebClient()
+                .get()
+                .uri("/users/internal/users/{userId}", userId.toString())
+                .header("X-Service-Secret", gatewaySecret)
+                .header("X-Source", "gateway")
+                .retrieve()
+                .bodyToMono(UserDetailsResponse.class)
+                .onErrorReturn(UserDetailsResponse.notFound());
     }
 
     public Mono<Void> createUser(String email, String password, String name) {
@@ -77,6 +90,22 @@ public class UserServiceClient {
 
         public static UserCredentialsResponse valid(String userId, String email, String name, boolean isActive) {
             return new UserCredentialsResponse(true, userId, email, name, isActive);
+        }
+    }
+
+    public record UserDetailsResponse(
+            boolean found,
+            String userId,
+            String email,
+            String name,
+            boolean isActive
+    ) {
+        public static UserDetailsResponse notFound() {
+            return new UserDetailsResponse(false, null, null, null, false);
+        }
+
+        public static UserDetailsResponse found(String userId, String email, String name, boolean isActive) {
+            return new UserDetailsResponse(true, userId, email, name, isActive);
         }
     }
 }
