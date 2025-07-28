@@ -5,6 +5,7 @@ import com.beaver.core.config.JwtConfig;
 import com.beaver.core.dto.*;
 import com.beaver.core.exception.AuthenticationFailedException;
 import com.beaver.core.service.JwtService;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -30,7 +31,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public Mono<ResponseEntity<AuthResponse>> login(@RequestBody LoginRequest request) {
+    public Mono<ResponseEntity<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         return userServiceClient.validateCredentials(request.email(), request.password())
                 .flatMap(userMap ->
                         createAuthResponse(
@@ -44,7 +45,7 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public Mono<ResponseEntity<AuthResponse>> signup(@RequestBody SignupRequest request) {
+    public Mono<ResponseEntity<AuthResponse>> signup(@Valid @RequestBody SignupRequest request) {
         return userServiceClient.createUser(request.email(), request.password(), request.name())
                 .then(Mono.defer(() ->
                         userServiceClient.validateCredentials(request.email(), request.password())
