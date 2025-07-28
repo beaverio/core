@@ -1,4 +1,4 @@
-package com.beaver.core.filter;
+package com.beaver.core.security;
 
 import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;
 import org.springframework.core.io.buffer.DataBuffer;

@@ -5,6 +5,7 @@ import com.beaver.core.dto.SignupRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -70,11 +71,13 @@ public class UserServiceClient {
                 .header("X-Source", "gateway")
                 .bodyValue(request)
                 .retrieve()
-                .bodyToMono(Void.class)
-                .doOnError(error -> {
-                    log.error("Failed to create user in user-service. Email: {}, Error: {}",
-                             email, error.getMessage(), error);
-                });
+                .onStatus(HttpStatusCode::isError, clientResponse ->
+                        clientResponse.bodyToMono(String.class)
+                        .flatMap(errorBody ->
+                                Mono.error(new org.springframework.web.server.ResponseStatusException(
+                                        clientResponse.statusCode(), errorBody
+                                ))))
+                .bodyToMono(Void.class);
     }
 
     public record UserCredentialsResponse(

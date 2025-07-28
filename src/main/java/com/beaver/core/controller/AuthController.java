@@ -3,6 +3,7 @@ package com.beaver.core.controller;
 import com.beaver.core.client.UserServiceClient;
 import com.beaver.core.config.JwtConfig;
 import com.beaver.core.dto.*;
+import com.beaver.core.exception.AuthenticationFailedException;
 import com.beaver.core.service.JwtService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -50,29 +51,21 @@ public class AuthController {
     @PostMapping("/signup")
     public Mono<ResponseEntity<AuthResponse>> signup(@RequestBody SignupRequest request) {
         return userServiceClient.createUser(request.email(), request.password(), request.name())
-                .then(Mono.defer(() -> userServiceClient.validateCredentials(request.email(), request.password())
-                        .flatMap(userResponse -> {
-                            if (userResponse.isValid()) {
-                                return createAuthResponse(
-                                        User.builder()
+                .then(Mono.defer(() -> {
+                    return userServiceClient.validateCredentials(request.email(), request.password())
+                            .flatMap(userResponse -> {
+                                if (userResponse.isValid()) {
+                                    return createAuthResponse(
+                                            User.builder()
                                                 .id(userResponse.userId())
                                                 .email(userResponse.email())
                                                 .name(userResponse.name()).build(),
-                                        "Signup successful");
-                            } else {
-                                return Mono.just(ResponseEntity.status(401)
-                                        .body(AuthResponse.builder().message("Failed to validate newly created user").build()));
-                            }
-                        })))
-                .onErrorResume(error -> {
-                    if (error.getMessage() != null && error.getMessage().contains("400 Bad Request")) {
-                        return Mono.just(ResponseEntity.status(409)
-                                .body(AuthResponse.builder().message("User already exists").build()));
-                    } else {
-                        return Mono.just(ResponseEntity.status(500)
-                                .body(AuthResponse.builder().message("Signup failed: " + error.getMessage()).build()));
-                    }
-                });
+                                            "Signup successful");
+                                } else {
+                                    return Mono.error(new AuthenticationFailedException("Failed to validate newly created user"));
+                                }
+                            });
+                }));
     }
     
     @PostMapping("/logout")
