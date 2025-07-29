@@ -98,6 +98,64 @@ public class AuthController {
                 .switchIfEmpty(Mono.error(new AuthenticationFailedException("Invalid refresh token")));
     }
 
+    @PatchMapping("/update-credentials")
+    public Mono<ResponseEntity<AuthResponse>> updateCredentials(
+            @CookieValue(value = "access_token", required = false) String accessToken,
+            @Valid @RequestBody UpdateCredentialsRequest request) {
+
+        if (accessToken == null || accessToken.trim().isEmpty()) {
+            return Mono.error(new AuthenticationFailedException("Access token is missing"));
+        }
+
+        return jwtService.isValidAccessToken(accessToken)
+                .filter(isValid -> isValid)
+                .flatMap(valid -> jwtService.extractUserId(accessToken))
+                .flatMap(userId -> {
+                    UUID userUuid = UUID.fromString(userId);
+
+                    // Handle email update
+                    if (request.newEmail() != null && !request.newEmail().trim().isEmpty()) {
+                        return userServiceClient.updateEmail(userUuid, request.newEmail(), request.currentPassword())
+                                .flatMap(updatedUserMap -> {
+                                    // Email changed, need to generate new tokens with new email
+                                    String newAccessToken = jwtService.generateAccessToken(
+                                            updatedUserMap.get("id").toString(),
+                                            (String) updatedUserMap.get("email"),
+                                            (String) updatedUserMap.get("name")
+                                    );
+                                    String newRefreshToken = jwtService.generateRefreshToken(updatedUserMap.get("id").toString());
+
+                                    ResponseCookie accessCookie = createAccessTokenCookie(newAccessToken);
+                                    ResponseCookie refreshCookie = createRefreshTokenCookie(newRefreshToken);
+
+                                    AuthResponse response = AuthResponse.builder()
+                                            .message("Email updated successfully")
+                                            .userId(updatedUserMap.get("id").toString())
+                                            .email((String) updatedUserMap.get("email"))
+                                            .name((String) updatedUserMap.get("name"))
+                                            .build();
+
+                                    return Mono.just(ResponseEntity.ok()
+                                            .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                                            .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                                            .body(response));
+                                });
+                    }
+
+                    // Handle password update
+                    else if (request.newPassword() != null && !request.newPassword().trim().isEmpty()) {
+                        return userServiceClient.updatePassword(userUuid, request.currentPassword(), request.newPassword())
+                                .then(Mono.just(ResponseEntity.ok(AuthResponse.builder()
+                                        .message("Password updated successfully")
+                                        .build())));
+                    }
+                    else {
+                        return Mono.error(new AuthenticationFailedException("No valid update field provided"));
+                    }
+                })
+                .switchIfEmpty(Mono.error(new AuthenticationFailedException("Invalid access token")));
+    }
+
     private Mono<ResponseEntity<AuthResponse>> generateNewAccessToken(String userId) {
         try {
             UUID userUuid = UUID.fromString(userId);

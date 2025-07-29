@@ -96,4 +96,52 @@ public class UserServiceClient {
                 )
                 .bodyToMono(Void.class);
     }
+
+    public Mono<Map<String, Object>> updateEmail(UUID userId, String newEmail, String currentPassword) {
+        Map<String, String> request = Map.of(
+                "email", newEmail,
+                "currentPassword", currentPassword
+        );
+
+        return getUserServiceWebClient()
+                .patch()
+                .uri("/users/internal/users/{userId}/email", userId.toString())
+                .header("X-Service-Secret", gatewaySecret)
+                .header("X-Source", "gateway")
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, clientResponse ->
+                        clientResponse.bodyToMono(String.class)
+                                .flatMap(errorBody ->
+                                        Mono.error(new org.springframework.web.server.ResponseStatusException(
+                                                clientResponse.statusCode(), errorBody
+                                        ))
+                                )
+                )
+                .bodyToMono(new ParameterizedTypeReference<>() {});
+    }
+
+    public Mono<Void> updatePassword(UUID userId, String currentPassword, String newPassword) {
+        Map<String, String> request = Map.of(
+                "currentPassword", currentPassword,
+                "newPassword", newPassword
+        );
+
+        return getUserServiceWebClient()
+                .patch()
+                .uri("/users/internal/users/{userId}/password", userId.toString())
+                .header("X-Service-Secret", gatewaySecret)
+                .header("X-Source", "gateway")
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, clientResponse ->
+                        clientResponse.bodyToMono(String.class)
+                                .flatMap(errorBody ->
+                                        Mono.error(new org.springframework.web.server.ResponseStatusException(
+                                                clientResponse.statusCode(), errorBody
+                                        ))
+                                )
+                )
+                .bodyToMono(Void.class);
+    }
 }
