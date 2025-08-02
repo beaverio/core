@@ -46,15 +46,19 @@ public class AuthController {
     public Mono<ResponseEntity<AuthResponse>> signup(@Valid @RequestBody SignupRequest request) {
         return userServiceClient.createUser(request.email(), request.password(), request.name())
                 .then(Mono.defer(() ->
-                        userServiceClient.validateCredentials(request.email(), request.password())
-                                .flatMap(userMap ->
-                                        createAuthResponse(
-                                                User.builder()
-                                                        .id(userMap.get("id").toString())
-                                                        .email((String) userMap.get("email"))
-                                                        .name((String) userMap.get("name")).build(),
-                                                null,
-                                                "Signup successful"))
+                        // Since every user now has a default workspace, use workspace-aware validation
+                        userServiceClient.validateCredentialsWithWorkspaces(request.email(), request.password())
+                                .map(UserWithWorkspacesDto::fromMap)
+                                .flatMap(userWithWorkspaces -> {
+                                    if (userWithWorkspaces.workspaces().isEmpty()) {
+                                        return Mono.error(new AuthenticationFailedException("Failed to create default workspace"));
+                                    }
+
+                                    // Use the default workspace (should be the only one for new users)
+                                    WorkspaceMembershipDto defaultWorkspace = userWithWorkspaces.workspaces().get(0);
+
+                                    return createAuthResponse(userWithWorkspaces.user(), defaultWorkspace, "Signup successful");
+                                })
                 ));
     }
 
@@ -181,54 +185,6 @@ public class AuthController {
     }
 
     private Mono<ResponseEntity<AuthResponse>> createAuthResponse(
-            User user, WorkspaceMembershipDto membership, String message) {
-
-        if (membership != null) {
-            // Multi-workspace token
-            String accessToken = jwtService.generateAccessToken(
-                    user.id(), user.email(), user.name(),
-                    membership.workspace().id(),
-                    membership.getAllPermissions()
-            );
-            String refreshToken = jwtService.generateRefreshToken(user.id());
-
-            ResponseCookie accessCookie = createAccessTokenCookie(accessToken);
-            ResponseCookie refreshCookie = createRefreshTokenCookie(refreshToken);
-
-            AuthResponse response = AuthResponse.builder()
-                    .message(message)
-                    .userId(user.id())
-                    .email(user.email())
-                    .name(user.name())
-                    .build();
-
-            return Mono.just(ResponseEntity.ok()
-                    .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
-                    .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                    .body(response));
-        } else {
-            // Simple token (for signup before workspace assignment)
-            String accessToken = jwtService.generateAccessToken(user.id(), user.email(), user.name());
-            String refreshToken = jwtService.generateRefreshToken(user.id());
-
-            ResponseCookie accessCookie = createAccessTokenCookie(accessToken);
-            ResponseCookie refreshCookie = createRefreshTokenCookie(refreshToken);
-
-            AuthResponse response = AuthResponse.builder()
-                    .message(message)
-                    .userId(user.id())
-                    .email(user.email())
-                    .name(user.name())
-                    .build();
-
-            return Mono.just(ResponseEntity.ok()
-                    .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
-                    .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                    .body(response));
-        }
-    }
-
-    private Mono<ResponseEntity<AuthResponse>> createAuthResponse(
             UserDto user, WorkspaceMembershipDto membership, String message) {
 
         String accessToken = jwtService.generateAccessToken(
@@ -257,32 +213,39 @@ public class AuthController {
     private Mono<ResponseEntity<AuthResponse>> generateNewAccessToken(String userId) {
         try {
             UUID userUuid = UUID.fromString(userId);
-            return userServiceClient.getUserById(userUuid)
-                    .map(UserDto::fromMap)
-                    .flatMap(user -> {
-                        if (user.active()) {
-                            String newAccessToken = jwtService.generateAccessToken(
-                                    user.id(),
-                                    user.email(),
-                                    user.name()
-                            );
 
-                            ResponseCookie accessCookie = createAccessTokenCookie(newAccessToken);
-
-                            AuthResponse response = AuthResponse.builder()
-                                    .message("Token refreshed successfully")
-                                    .userId(user.id())
-                                    .email(user.email())
-                                    .name(user.name())
-                                    .build();
-
-                            return Mono.just(ResponseEntity.ok()
-                                    .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
-                                    .body(response));
-                        } else {
-                            log.warn("User account is inactive for userId: {}", user.id());
-                            return Mono.error(new AuthenticationFailedException("User account is inactive"));
+            // Get user's workspace memberships without requiring credentials
+            return userServiceClient.getUserWorkspaceMemberships(userUuid)
+                    .map(UserWithWorkspacesDto::fromMap)
+                    .flatMap(userWithWorkspaces -> {
+                        if (userWithWorkspaces.workspaces().isEmpty()) {
+                            return Mono.error(new AuthenticationFailedException("No workspace access"));
                         }
+
+                        // Select primary workspace (same logic as login)
+                        WorkspaceMembershipDto primaryMembership = selectPrimaryWorkspace(userWithWorkspaces.workspaces());
+
+                        // Generate workspace-aware access token
+                        String newAccessToken = jwtService.generateAccessToken(
+                                userWithWorkspaces.user().id(),
+                                userWithWorkspaces.user().email(),
+                                userWithWorkspaces.user().name(),
+                                primaryMembership.workspace().id(),
+                                primaryMembership.getAllPermissions()
+                        );
+
+                        ResponseCookie accessCookie = createAccessTokenCookie(newAccessToken);
+
+                        AuthResponse response = AuthResponse.builder()
+                                .message("Token refreshed successfully")
+                                .userId(userWithWorkspaces.user().id())
+                                .email(userWithWorkspaces.user().email())
+                                .name(userWithWorkspaces.user().name())
+                                .build();
+
+                        return Mono.just(ResponseEntity.ok()
+                                .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                                .body(response));
                     });
         } catch (IllegalArgumentException e) {
             return Mono.error(new AuthenticationFailedException("Invalid user ID in token"));

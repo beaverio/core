@@ -64,31 +64,43 @@ public class JwtService {
     }
     
     public Mono<String> extractUserId(String token) {
-        return extractClaim(token, claims -> claims.get("userId", String.class));
+        return extractAllClaims(token)
+                .map(claims -> claims.get("userId", String.class))
+                .filter(Objects::nonNull);
     }
 
     public Mono<String> extractWorkspaceId(String token) {
-        return extractClaim(token, claims -> claims.get("workspaceId", String.class));
+        return extractAllClaims(token)
+                .map(claims -> claims.get("workspaceId", String.class))
+                .filter(Objects::nonNull);
     }
 
     public Mono<Set<String>> extractPermissions(String token) {
-        return extractClaim(token, claims -> {
-            List<String> perms = claims.get("permissions", List.class);
-            return perms != null ? new HashSet<>(perms) : new HashSet<>();
-        });
+        return extractAllClaims(token)
+                .map(claims -> {
+                    List<String> perms = claims.get("permissions", List.class);
+                    return perms != null ? new HashSet<>(perms) : new HashSet<>();
+                });
     }
     
     public Mono<String> extractTokenType(String token) {
-        return extractClaim(token, claims -> claims.get("type", String.class));
+        return extractAllClaims(token)
+                .map(claims -> claims.get("type", String.class))
+                .filter(Objects::nonNull);
     }
     
     public Mono<Date> extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
+        return extractAllClaims(token)
+                .map(Claims::getExpiration)
+                .filter(Objects::nonNull);
     }
-    
+
     public <T> Mono<T> extractClaim(String token, Function<Claims, T> claimsResolver) {
         return extractAllClaims(token)
-                .map(claimsResolver);
+                .map(claimsResolver)
+                .flatMap(value -> value != null
+                        ? Mono.just(value)
+                        : Mono.error(new RuntimeException("JWT claim is missing or null")));
     }
     
     public Mono<Claims> extractAllClaims(String token) {
@@ -117,8 +129,9 @@ public class JwtService {
     private Mono<Boolean> validateTokenType(String token, String expectedType) {
         return extractTokenType(token)
                 .filter(expectedType::equals)
-                .flatMap(type -> isTokenExpired(token))
-                .map(expired -> !expired)
+                .flatMap(type -> isTokenExpired(token)
+                        .map(expired -> !expired)
+                        .onErrorReturn(false))
                 .defaultIfEmpty(false)
                 .onErrorReturn(false);
     }

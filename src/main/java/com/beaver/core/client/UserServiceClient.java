@@ -190,4 +190,22 @@ public class UserServiceClient {
                 )
                 .bodyToMono(Void.class);
     }
+
+    public Mono<Map<String, Object>> getUserWorkspaceMemberships(UUID userId) {
+        return getUserServiceWebClient()
+                .get()
+                .uri("/users/internal/users/{userId}/workspaces", userId.toString())
+                .header("X-Service-Secret", gatewaySecret)
+                .header("X-Source", "gateway")
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, clientResponse ->
+                        clientResponse.bodyToMono(String.class)
+                                .flatMap(errorBody ->
+                                        Mono.error(new org.springframework.web.server.ResponseStatusException(
+                                                clientResponse.statusCode(), errorBody
+                                        ))
+                                )
+                )
+                .bodyToMono(new ParameterizedTypeReference<>() {});
+    }
 }
