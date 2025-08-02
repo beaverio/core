@@ -9,8 +9,7 @@ import reactor.core.publisher.Mono;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
 @Service
@@ -31,6 +30,18 @@ public class JwtService {
             "name", name,
             "type", "access"
         ), jwtConfig.getAccessTokenValidity() * 60 * 1000); // minutes to milliseconds
+    }
+
+    public String generateAccessToken(String userId, String email, String name,
+                                      String workspaceId, Set<String> permissions) {
+        return generateToken(Map.of(
+                "userId", userId,
+                "email", email,
+                "name", name,
+                "workspaceId", workspaceId,
+                "permissions", new ArrayList<>(permissions),
+                "type", "access"
+        ), jwtConfig.getAccessTokenValidity() * 60 * 1000);
     }
     
     public String generateRefreshToken(String userId) {
@@ -54,6 +65,17 @@ public class JwtService {
     
     public Mono<String> extractUserId(String token) {
         return extractClaim(token, claims -> claims.get("userId", String.class));
+    }
+
+    public Mono<String> extractWorkspaceId(String token) {
+        return extractClaim(token, claims -> claims.get("workspaceId", String.class));
+    }
+
+    public Mono<Set<String>> extractPermissions(String token) {
+        return extractClaim(token, claims -> {
+            List<String> perms = claims.get("permissions", List.class);
+            return perms != null ? new HashSet<>(perms) : new HashSet<>();
+        });
     }
     
     public Mono<String> extractTokenType(String token) {

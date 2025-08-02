@@ -55,6 +55,30 @@ public class UserServiceClient {
                 .bodyToMono(new ParameterizedTypeReference<>() {});
     }
 
+    public Mono<Map<String, Object>> validateCredentialsWithWorkspaces(String email, String password) {
+        LoginRequest request = LoginRequest.builder()
+                .email(email)
+                .password(password)
+                .build();
+
+        return getUserServiceWebClient()
+                .post()
+                .uri("/users/internal/validate-credentials-with-workspaces")
+                .header("X-Service-Secret", gatewaySecret)
+                .header("X-Source", "gateway")
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, clientResponse ->
+                        clientResponse.bodyToMono(String.class)
+                                .flatMap(errorBody ->
+                                        Mono.error(new org.springframework.web.server.ResponseStatusException(
+                                                clientResponse.statusCode(), errorBody
+                                        ))
+                                )
+                )
+                .bodyToMono(new ParameterizedTypeReference<>() {});
+    }
+
     public Mono<Map<String, Object>> getUserById(UUID userId) {
         return getUserServiceWebClient()
                 .get()
@@ -95,6 +119,28 @@ public class UserServiceClient {
                                 )))
                 )
                 .bodyToMono(Void.class);
+    }
+
+    public Mono<Map<String, Object>> validateWorkspaceAccess(UUID userId, UUID workspaceId) {
+        return getUserServiceWebClient()
+                .post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/users/internal/validate-workspace-access")
+                        .queryParam("userId", userId)
+                        .queryParam("workspaceId", workspaceId)
+                        .build())
+                .header("X-Service-Secret", gatewaySecret)
+                .header("X-Source", "gateway")
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, clientResponse ->
+                        clientResponse.bodyToMono(String.class)
+                                .flatMap(errorBody ->
+                                        Mono.error(new org.springframework.web.server.ResponseStatusException(
+                                                clientResponse.statusCode(), errorBody
+                                        ))
+                                )
+                )
+                .bodyToMono(new ParameterizedTypeReference<>() {});
     }
 
     public Mono<Map<String, Object>> updateEmail(UUID userId, String newEmail, String currentPassword) {
