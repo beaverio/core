@@ -6,6 +6,7 @@ import com.beaver.core.dto.*;
 import com.beaver.core.exception.AuthenticationFailedException;
 import com.beaver.core.service.JwtService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -15,33 +16,30 @@ import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
-@RestController
-@RequestMapping("/auth")
 @Slf4j
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/auth")
 public class AuthController {
 
     private final UserServiceClient userServiceClient;
     private final JwtService jwtService;
     private final JwtConfig jwtConfig;
 
-    public AuthController(UserServiceClient userServiceClient, JwtService jwtService, JwtConfig jwtConfig) {
-        this.userServiceClient = userServiceClient;
-        this.jwtService = jwtService;
-        this.jwtConfig = jwtConfig;
-    }
-
     @PostMapping("/login")
     public Mono<ResponseEntity<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
-        return userServiceClient.validateCredentials(request.email(), request.password())
-                .flatMap(userMap ->
-                        createAuthResponse(
-                            User.builder()
-                                    .id(userMap.get("id").toString())
-                                    .email((String) userMap.get("email"))
-                                    .name((String) userMap.get("name"))
-                                    .build()
-                            , "Login successful")
-                );
+        return userServiceClient.validateCredentialsWithWorkspaces(request.email(), request.password())
+                .map(UserWithWorkspacesDto::fromMap)
+                .flatMap(userWithWorkspaces -> {
+                    if (userWithWorkspaces.workspaces().isEmpty()) {
+                        return Mono.error(new AuthenticationFailedException("No workspace access"));
+                    }
+
+                    // Select primary workspace (first active one, or let user choose)
+                    WorkspaceMembershipDto primaryMembership = selectPrimaryWorkspace(userWithWorkspaces.workspaces());
+
+                    return createAuthResponse(userWithWorkspaces.user(), primaryMembership, "Login successful");
+                });
     }
 
     @PostMapping("/signup")
@@ -55,8 +53,33 @@ public class AuthController {
                                                         .id(userMap.get("id").toString())
                                                         .email((String) userMap.get("email"))
                                                         .name((String) userMap.get("name")).build(),
+                                                null,
                                                 "Signup successful"))
                 ));
+    }
+
+    @PostMapping("/switch-workspace")
+    public Mono<ResponseEntity<AuthResponse>> switchWorkspace(
+            @CookieValue("access_token") String accessToken,
+            @Valid @RequestBody SwitchWorkspaceRequest request) {
+
+        return jwtService.extractUserId(accessToken)
+                .flatMap(userId ->
+                        userServiceClient.validateWorkspaceAccess(
+                                        UUID.fromString(userId),
+                                        UUID.fromString(request.workspaceId())
+                                )
+                                .map(WorkspaceMembershipDto::fromMap)
+                                .flatMap(membership ->
+                                        userServiceClient.getUserById(UUID.fromString(userId))
+                                                .map(UserDto::fromMap)
+                                                .flatMap(user -> createAuthResponse(
+                                                        user,
+                                                        membership,
+                                                        "Workspace switched successfully"
+                                                ))
+                                )
+                );
     }
     
     @PostMapping("/logout")
@@ -116,23 +139,24 @@ public class AuthController {
                     // Handle email update
                     if (request.newEmail() != null && !request.newEmail().trim().isEmpty()) {
                         return userServiceClient.updateEmail(userUuid, request.newEmail(), request.currentPassword())
-                                .flatMap(updatedUserMap -> {
+                                .map(UserDto::fromMap)
+                                .flatMap(updatedUser -> {
                                     // Email changed, need to generate new tokens with new email
                                     String newAccessToken = jwtService.generateAccessToken(
-                                            updatedUserMap.get("id").toString(),
-                                            (String) updatedUserMap.get("email"),
-                                            (String) updatedUserMap.get("name")
+                                            updatedUser.id(),
+                                            updatedUser.email(),
+                                            updatedUser.name()
                                     );
-                                    String newRefreshToken = jwtService.generateRefreshToken(updatedUserMap.get("id").toString());
+                                    String newRefreshToken = jwtService.generateRefreshToken(updatedUser.id());
 
                                     ResponseCookie accessCookie = createAccessTokenCookie(newAccessToken);
                                     ResponseCookie refreshCookie = createRefreshTokenCookie(newRefreshToken);
 
                                     AuthResponse response = AuthResponse.builder()
                                             .message("Email updated successfully")
-                                            .userId(updatedUserMap.get("id").toString())
-                                            .email((String) updatedUserMap.get("email"))
-                                            .name((String) updatedUserMap.get("name"))
+                                            .userId(updatedUser.id())
+                                            .email(updatedUser.email())
+                                            .name(updatedUser.name())
                                             .build();
 
                                     return Mono.just(ResponseEntity.ok()
@@ -156,46 +180,62 @@ public class AuthController {
                 .switchIfEmpty(Mono.error(new AuthenticationFailedException("Invalid access token")));
     }
 
-    private Mono<ResponseEntity<AuthResponse>> generateNewAccessToken(String userId) {
-        try {
-            UUID userUuid = UUID.fromString(userId);
-            return userServiceClient.getUserById(userUuid)
-                    .flatMap(userMap -> {
-                        Boolean isActive = (Boolean) userMap.get("active");
-                        if (Boolean.TRUE.equals(isActive)) {
-                            String newAccessToken = jwtService.generateAccessToken(
-                                    userMap.get("id").toString(),
-                                    (String) userMap.get("email"),
-                                    (String) userMap.get("name")
-                            );
+    private Mono<ResponseEntity<AuthResponse>> createAuthResponse(
+            User user, WorkspaceMembershipDto membership, String message) {
 
-                            ResponseCookie accessCookie = createAccessTokenCookie(newAccessToken);
+        if (membership != null) {
+            // Multi-workspace token
+            String accessToken = jwtService.generateAccessToken(
+                    user.id(), user.email(), user.name(),
+                    membership.workspace().id(),
+                    membership.getAllPermissions()
+            );
+            String refreshToken = jwtService.generateRefreshToken(user.id());
 
-                            AuthResponse response = AuthResponse.builder()
-                                    .message("Token refreshed successfully")
-                                    .userId(userMap.get("id").toString())
-                                    .email((String) userMap.get("email"))
-                                    .name((String) userMap.get("name"))
-                                    .build();
+            ResponseCookie accessCookie = createAccessTokenCookie(accessToken);
+            ResponseCookie refreshCookie = createRefreshTokenCookie(refreshToken);
 
-                            return Mono.just(ResponseEntity.ok()
-                                    .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
-                                    .body(response));
-                        } else {
-                            log.warn("User account is inactive for userId: {}", userMap.get("id"));
-                            return Mono.error(new AuthenticationFailedException("User account is inactive"));
-                        }
-                    });
-        } catch (IllegalArgumentException e) {
-            return Mono.error(new AuthenticationFailedException("Invalid user ID in token"));
+            AuthResponse response = AuthResponse.builder()
+                    .message(message)
+                    .userId(user.id())
+                    .email(user.email())
+                    .name(user.name())
+                    .build();
+
+            return Mono.just(ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                    .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                    .body(response));
+        } else {
+            // Simple token (for signup before workspace assignment)
+            String accessToken = jwtService.generateAccessToken(user.id(), user.email(), user.name());
+            String refreshToken = jwtService.generateRefreshToken(user.id());
+
+            ResponseCookie accessCookie = createAccessTokenCookie(accessToken);
+            ResponseCookie refreshCookie = createRefreshTokenCookie(refreshToken);
+
+            AuthResponse response = AuthResponse.builder()
+                    .message(message)
+                    .userId(user.id())
+                    .email(user.email())
+                    .name(user.name())
+                    .build();
+
+            return Mono.just(ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                    .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                    .body(response));
         }
     }
 
     private Mono<ResponseEntity<AuthResponse>> createAuthResponse(
-            User user, String message) {
+            UserDto user, WorkspaceMembershipDto membership, String message) {
 
         String accessToken = jwtService.generateAccessToken(
-                user.id(), user.email(), user.name());
+                user.id(), user.email(), user.name(),
+                membership.workspace().id(),
+                membership.getAllPermissions()
+        );
         String refreshToken = jwtService.generateRefreshToken(user.id());
 
         ResponseCookie accessCookie = createAccessTokenCookie(accessToken);
@@ -212,6 +252,47 @@ public class AuthController {
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(response));
+    }
+
+    private Mono<ResponseEntity<AuthResponse>> generateNewAccessToken(String userId) {
+        try {
+            UUID userUuid = UUID.fromString(userId);
+            return userServiceClient.getUserById(userUuid)
+                    .map(UserDto::fromMap)
+                    .flatMap(user -> {
+                        if (user.active()) {
+                            String newAccessToken = jwtService.generateAccessToken(
+                                    user.id(),
+                                    user.email(),
+                                    user.name()
+                            );
+
+                            ResponseCookie accessCookie = createAccessTokenCookie(newAccessToken);
+
+                            AuthResponse response = AuthResponse.builder()
+                                    .message("Token refreshed successfully")
+                                    .userId(user.id())
+                                    .email(user.email())
+                                    .name(user.name())
+                                    .build();
+
+                            return Mono.just(ResponseEntity.ok()
+                                    .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                                    .body(response));
+                        } else {
+                            log.warn("User account is inactive for userId: {}", user.id());
+                            return Mono.error(new AuthenticationFailedException("User account is inactive"));
+                        }
+                    });
+        } catch (IllegalArgumentException e) {
+            return Mono.error(new AuthenticationFailedException("Invalid user ID in token"));
+        }
+    }
+
+    private WorkspaceMembershipDto selectPrimaryWorkspace(java.util.List<WorkspaceMembershipDto> memberships) {
+        // For now, just return the first one
+        // Later you could add logic for "last used workspace" or let user choose
+        return memberships.get(0);
     }
 
     private ResponseCookie createAccessTokenCookie(String accessToken) {
