@@ -10,24 +10,17 @@ spring:
   cloud:
     gateway:
       routes:
-        - id: auth-routes
+        - id: user-service-auth
           uri: ${user-service.url}
           predicates:
-            - Path=/users/auth/**
+            - Path=/auth/**
           filters:
-            - name: StripPrefix
-              args:
-                parts: 1
             - name: AddRequestHeader
               args:
-                name: X-Service-Secret
+                name: X-Gateway-Secret
                 value: ${gateway.secret}
-            - name: AddRequestHeader
-              args:
-                name: X-Source
-                value: gateway
 
-        - id: user-service-protected
+        - id: user-service
           uri: ${user-service.url}
           predicates:
             - Path=/users/**
@@ -39,12 +32,8 @@ spring:
                 parts: 1
             - name: AddRequestHeader
               args:
-                name: X-Service-Secret
+                name: X-Gateway-Secret
                 value: ${gateway.secret}
-            - name: AddRequestHeader
-              args:
-                name: X-Source
-                value: gateway
 
 logging:
   level:
