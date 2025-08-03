@@ -10,7 +10,6 @@ spring:
   cloud:
     gateway:
       routes:
-        # Auth routes - no JWT validation, direct proxy to user-service
         - id: auth-routes
           uri: ${user-service.url}
           predicates:
@@ -28,34 +27,13 @@ spring:
                 name: X-Source
                 value: gateway
 
-        # Protected user routes - JWT validation + context enrichment + strip prefix
         - id: user-service-protected
           uri: ${user-service.url}
           predicates:
             - Path=/users/**
           filters:
-            - Authentication        # Step 1: Validate JWT
-            - ContextEnrichment     # Step 2: Extract claims and add headers
-            - name: StripPrefix
-              args:
-                parts: 1
-            - name: AddRequestHeader
-              args:
-                name: X-Service-Secret
-                value: ${gateway.secret}
-            - name: AddRequestHeader
-              args:
-                name: X-Source
-                value: gateway
-
-        # Future tenant routes (placeholder)
-        - id: tenant-service-protected
-          uri: ${tenant-service.url:http://localhost:8082}
-          predicates:
-            - Path=/tenants/**
-          filters:
-            - Authentication        # Step 1: Validate JWT
-            - ContextEnrichment     # Step 2: Extract claims and add headers
+            - AuthenticationFilter
+            - ContextEnrichmentFilter
             - name: StripPrefix
               args:
                 parts: 1
