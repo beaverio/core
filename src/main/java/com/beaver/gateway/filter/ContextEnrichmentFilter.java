@@ -1,4 +1,4 @@
-package com.beaver.core.filter;
+package com.beaver.gateway.filter;
 
 import com.beaver.auth.jwt.JwtService;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +26,7 @@ public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<Contex
             String path = exchange.getRequest().getPath().value();
 
             // Skip context enrichment for auth endpoints only
-            if (path.startsWith("/auth/")) {
+            if (path.startsWith("/users/auth/") || path.startsWith("/auth/")) {
                 log.debug("Skipping context enrichment for auth endpoint: {}", path);
                 return chain.filter(exchange);
             }

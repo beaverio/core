@@ -1,9 +1,9 @@
-package com.beaver.core.config;
+package com.beaver.gateway.config;
 
 import com.beaver.auth.exceptions.JwtTokenMalformedException;
 import com.beaver.auth.exceptions.JwtTokenMissingException;
-import com.beaver.core.dto.ErrorResponse;
-import com.beaver.core.exception.RateLimitExceededException;
+import com.beaver.gateway.dto.ErrorResponse;
+import com.beaver.gateway.exception.RateLimitExceededException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;

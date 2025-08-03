@@ -1,4 +1,4 @@
-package com.beaver.core.dto;
+package com.beaver.gateway.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

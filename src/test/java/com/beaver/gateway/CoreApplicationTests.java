@@ -1,4 +1,4 @@
-package com.beaver.core;
+package com.beaver.gateway;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

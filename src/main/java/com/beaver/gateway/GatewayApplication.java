@@ -1,14 +1,14 @@
-package com.beaver.core;
+package com.beaver.gateway;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 
-@ComponentScan(basePackages = {"com.beaver.core", "com.beaver.auth"})
+@ComponentScan(basePackages = {"com.beaver.gateway", "com.beaver.auth"})
 @SpringBootApplication
-public class CoreApplication {
+public class GatewayApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(CoreApplication.class, args);
+        SpringApplication.run(GatewayApplication.class, args);
     }
 }

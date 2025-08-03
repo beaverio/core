@@ -1,4 +1,4 @@
-package com.beaver.core.config;
+package com.beaver.gateway.config;
 
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;

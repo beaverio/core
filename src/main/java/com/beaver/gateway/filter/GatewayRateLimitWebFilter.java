@@ -1,6 +1,6 @@
-package com.beaver.core.filter;
+package com.beaver.gateway.filter;
 
-import com.beaver.core.exception.RateLimitExceededException;
+import com.beaver.gateway.exception.RateLimitExceededException;
 import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;

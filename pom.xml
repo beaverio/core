@@ -9,9 +9,9 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.beaver</groupId>
-	<artifactId>core</artifactId>
+	<artifactId>beaver-gateway</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>core</name>
+	<name>beaver-gateway</name>
 	<description>Spring Cloud Gateway for Beaver microservices</description>
 
 	<properties>

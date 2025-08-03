@@ -1,4 +1,4 @@
-package com.beaver.core.filter;
+package com.beaver.gateway.filter;
 
 import com.beaver.auth.jwt.JwtConfig;
 import com.beaver.auth.jwt.JwtService;
@@ -45,7 +45,7 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
         return ((exchange, chain) -> {
             String path = exchange.getRequest().getPath().value();
 
-            if (path.startsWith("/auth/")) {
+            if (path.startsWith("/users/auth/") || path.startsWith("/auth/")) {
                 log.debug("Skipping authentication for auth endpoint: {}", path);
                 return chain.filter(exchange);
             }

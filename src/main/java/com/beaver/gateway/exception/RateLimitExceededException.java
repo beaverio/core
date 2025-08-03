@@ -1,4 +1,4 @@
-package com.beaver.core.exception;
+package com.beaver.gateway.exception;
 
 public class RateLimitExceededException extends RuntimeException {
     public RateLimitExceededException(String message) {
