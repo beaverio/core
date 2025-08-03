@@ -5,13 +5,13 @@ spring:
   config:
     import: optional:file:.env[.properties]
   application:
-    name: beaver-core-${ENV:local}
+    name: beaver-gateway-${ENV:local}
 
   cloud:
     gateway:
       routes:
-        - id: user-service-auth
-          uri: ${user-service.url}
+        - id: beaver-identity-auth
+          uri: ${beaver.identity.url}
           predicates:
             - Path=/auth/**
           filters:
@@ -20,8 +20,8 @@ spring:
                 name: X-Gateway-Secret
                 value: ${gateway.secret}
 
-        - id: user-service
-          uri: ${user-service.url}
+        - id: beaver-identity
+          uri: ${beaver.identity.url}
           predicates:
             - Path=/users/**
           filters:
@@ -51,5 +51,6 @@ gateway:
   secret: ${GATEWAY_SECRET}
 
 # Downstream Services
-user-service:
-  url: ${USER_SERVICE_URL:http://localhost:8081}
+beaver:
+  identity:
+    url: ${BEAVER_IDENTITY_URL:http://localhost:8081}
