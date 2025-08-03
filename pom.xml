@@ -19,6 +19,15 @@
 		<spring-cloud.version>2023.0.3</spring-cloud.version>
 	</properties>
 
+	<!-- Repositories -->
+	<repositories>
+		<repository>
+			<id>github</id>
+			<name>GitHub Packages</name>
+			<url>https://maven.pkg.github.com/beaverio/beaver-auth</url>
+		</repository>
+	</repositories>
+
 	<dependencies>
 		<!-- Spring Cloud Gateway -->
 		<dependency>
@@ -26,7 +35,7 @@
 			<artifactId>spring-cloud-starter-gateway</artifactId>
 		</dependency>
 
-		<!-- JWT for token generation and validation -->
+		<!-- JWT for token validation -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-api</artifactId>
@@ -43,6 +52,13 @@
 			<artifactId>jjwt-jackson</artifactId>
 			<version>0.12.6</version>
 			<scope>runtime</scope>
+		</dependency>
+
+		<!-- Beaver Shared Libraries -->
+		<dependency>
+			<groupId>com.beaver</groupId>
+			<artifactId>beaver-auth</artifactId>
+			<version>LATEST</version>
 		</dependency>
 
 		<!-- Spring WebFlux -->

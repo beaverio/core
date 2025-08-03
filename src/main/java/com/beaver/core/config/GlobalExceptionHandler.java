@@ -2,10 +2,10 @@ package com.beaver.core.config;
 
 import com.beaver.core.dto.ErrorResponse;
 import com.beaver.core.exception.AuthenticationFailedException;
-import com.beaver.core.exception.JwtTokenIncorrectStructureException;
-import com.beaver.core.exception.JwtTokenMalformedException;
-import com.beaver.core.exception.JwtTokenMissingException;
 import com.beaver.core.exception.RateLimitExceededException;
+import com.beaver.auth.exceptions.JwtTokenIncorrectStructureException;
+import com.beaver.auth.exceptions.JwtTokenMalformedException;
+import com.beaver.auth.exceptions.JwtTokenMissingException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
