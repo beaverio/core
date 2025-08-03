@@ -4,6 +4,7 @@ import com.beaver.auth.jwt.JwtConfig;
 import com.beaver.auth.exceptions.JwtTokenMalformedException;
 import com.beaver.auth.exceptions.JwtTokenMissingException;
 import com.beaver.auth.jwt.JwtService;
+import com.beaver.auth.cookie.ReactiveTokenExtractor;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -21,11 +22,13 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
 
     private final JwtService jwtService;
     private final JwtConfig jwtConfig;
+    private final ReactiveTokenExtractor tokenExtractor;
 
-    public AuthenticationFilter(JwtService jwtService, JwtConfig jwtConfig) {
+    public AuthenticationFilter(JwtService jwtService, JwtConfig jwtConfig, ReactiveTokenExtractor tokenExtractor) {
         super(Config.class);
         this.jwtService = jwtService;
         this.jwtConfig = jwtConfig;
+        this.tokenExtractor = tokenExtractor;
     }
 
     @Override
@@ -33,21 +36,19 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
         return ((exchange, chain) -> {
             String path = exchange.getRequest().getPath().value();
 
-            // Skip authentication for auth endpoints
-            if (path.startsWith("/users/auth/")) {
+            if (path.startsWith("/users/auth/") || path.startsWith("/auth/")) {
                 log.debug("Skipping authentication for auth endpoint: {}", path);
                 return chain.filter(exchange);
             }
 
             if (!jwtConfig.isAuthDisabled()) {
-                String token = extractTokenFromRequest(exchange.getRequest());
+                String token = tokenExtractor.extractAccessToken(exchange.getRequest());
 
                 if (token == null) {
                     log.warn("Access token is missing for request to: {}", path);
                     return Mono.error(new JwtTokenMissingException("Access token is missing"));
                 }
 
-                // Only validate JWT - don't extract claims here
                 return jwtService.isValidAccessToken(token)
                     .flatMap(isValid -> {
                         if (isValid) {
@@ -71,21 +72,7 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
             return chain.filter(exchange);
         });
     }
-    
-    private String extractTokenFromRequest(org.springframework.http.server.reactive.ServerHttpRequest request) {
-        // Try Authorization header first (Bearer token)
-        String authHeader = request.getHeaders().getFirst("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7);
-        }
 
-        // Fallback to cookie
-        if (request.getCookies().containsKey("access_token")) {
-            return request.getCookies().getFirst("access_token").getValue();
-        }
-
-        return null;
-    }
 
     public static class Config {
         // Configuration properties can be added here if needed
