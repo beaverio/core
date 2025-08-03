@@ -35,6 +35,13 @@
 			<artifactId>spring-cloud-starter-gateway</artifactId>
 		</dependency>
 
+		<!-- Jakarta Servlet API (required for AuthCookieService) -->
+		<dependency>
+			<groupId>jakarta.servlet</groupId>
+			<artifactId>jakarta.servlet-api</artifactId>
+			<scope>provided</scope>
+		</dependency>
+
 		<!-- JWT for token validation -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>

@@ -4,7 +4,7 @@ import com.beaver.auth.jwt.JwtConfig;
 import com.beaver.auth.exceptions.JwtTokenMalformedException;
 import com.beaver.auth.exceptions.JwtTokenMissingException;
 import com.beaver.auth.jwt.JwtService;
-import com.beaver.auth.cookie.ReactiveTokenExtractor;
+import com.beaver.auth.cookie.AuthCookieService;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
@@ -22,13 +22,13 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
 
     private final JwtService jwtService;
     private final JwtConfig jwtConfig;
-    private final ReactiveTokenExtractor tokenExtractor;
+    private final AuthCookieService cookieService;
 
-    public AuthenticationFilter(JwtService jwtService, JwtConfig jwtConfig, ReactiveTokenExtractor tokenExtractor) {
+    public AuthenticationFilter(JwtService jwtService, JwtConfig jwtConfig, AuthCookieService cookieService) {
         super(Config.class);
         this.jwtService = jwtService;
         this.jwtConfig = jwtConfig;
-        this.tokenExtractor = tokenExtractor;
+        this.cookieService = cookieService;
     }
 
     @Override
@@ -42,7 +42,7 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
             }
 
             if (!jwtConfig.isAuthDisabled()) {
-                String token = tokenExtractor.extractAccessToken(exchange.getRequest());
+                String token = cookieService.extractAccessToken(exchange.getRequest());
 
                 if (token == null) {
                     log.warn("Access token is missing for request to: {}", path);
