@@ -1,4 +1,4 @@
-package com.beaver.core.security;
+package com.beaver.core.filter;
 
 import com.beaver.auth.jwt.JwtService;
 import lombok.extern.slf4j.Slf4j;

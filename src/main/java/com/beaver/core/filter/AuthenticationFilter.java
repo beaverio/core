@@ -1,4 +1,4 @@
-package com.beaver.core.security;
+package com.beaver.core.filter;
 
 import com.beaver.auth.jwt.JwtConfig;
 import com.beaver.auth.exceptions.JwtTokenMalformedException;

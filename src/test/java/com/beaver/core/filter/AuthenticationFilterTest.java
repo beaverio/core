@@ -1,4 +1,4 @@
-package com.beaver.core.security;
+package com.beaver.core.filter;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 @TestPropertySource(properties = {
     "jwt.authDisabled=false",
-    "logging.level.com.beaver.core.security.AuthenticationFilter=WARN"
+    "logging.level.com.beaver.core.filter.AuthenticationFilter=WARN"
 })
 class AuthenticationFilterTest {
 

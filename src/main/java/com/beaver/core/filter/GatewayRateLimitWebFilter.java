@@ -1,4 +1,4 @@
-package com.beaver.core.security;
+package com.beaver.core.filter;
 
 import com.beaver.core.exception.RateLimitExceededException;
 import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;
