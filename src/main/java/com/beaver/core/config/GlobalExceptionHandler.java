@@ -1,5 +1,7 @@
 package com.beaver.core.config;
 
+import com.beaver.auth.exceptions.JwtTokenMalformedException;
+import com.beaver.auth.exceptions.JwtTokenMissingException;
 import com.beaver.core.dto.ErrorResponse;
 import com.beaver.core.exception.RateLimitExceededException;
 import org.springframework.http.HttpStatus;
@@ -69,5 +71,33 @@ public class GlobalExceptionHandler {
         );
 
         return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse));
+    }
+
+    @ExceptionHandler(JwtTokenMissingException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleJwtTokenMissing(
+            JwtTokenMissingException ex, ServerWebExchange exchange) {
+        ErrorResponse errorResponse = ErrorResponse.of(
+                HttpStatus.UNAUTHORIZED.value(),
+                "Authentication Required",
+                "Access token is required",
+                null,
+                exchange.getRequest().getPath().value()
+        );
+
+        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
+    }
+
+    @ExceptionHandler(JwtTokenMalformedException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleJwtTokenMalformed(
+            JwtTokenMalformedException ex, ServerWebExchange exchange) {
+        ErrorResponse errorResponse = ErrorResponse.of(
+                HttpStatus.UNAUTHORIZED.value(),
+                "Authentication Failed",
+                "Invalid or expired access token",
+                null,
+                exchange.getRequest().getPath().value()
+        );
+
+        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
     }
 }
