@@ -1,11 +1,7 @@
 package com.beaver.core.config;
 
 import com.beaver.core.dto.ErrorResponse;
-import com.beaver.core.exception.AuthenticationFailedException;
 import com.beaver.core.exception.RateLimitExceededException;
-import com.beaver.auth.exceptions.JwtTokenIncorrectStructureException;
-import com.beaver.auth.exceptions.JwtTokenMalformedException;
-import com.beaver.auth.exceptions.JwtTokenMissingException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -49,58 +45,6 @@ public class GlobalExceptionHandler {
                 .body(ex.getReason()));
     }
 
-    @ExceptionHandler(AuthenticationFailedException.class)
-    public Mono<ResponseEntity<ErrorResponse>> handleAuthenticationFailed(
-            AuthenticationFailedException ex, ServerWebExchange exchange) {
-        ErrorResponse errorResponse = ErrorResponse.of(
-                HttpStatus.UNAUTHORIZED.value(),
-                "Authentication Failed",
-                ex.getMessage(),
-                exchange.getRequest().getPath().value()
-        );
-
-        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
-    }
-
-    @ExceptionHandler({JwtTokenMalformedException.class, JwtTokenIncorrectStructureException.class})
-    public Mono<ResponseEntity<ErrorResponse>> handleJwtTokenErrors(
-            Exception ex, ServerWebExchange exchange) {
-        ErrorResponse errorResponse = ErrorResponse.of(
-                HttpStatus.UNAUTHORIZED.value(),
-                "Invalid Token",
-                ex.getMessage(),
-                exchange.getRequest().getPath().value()
-        );
-
-        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
-    }
-
-    @ExceptionHandler(JwtTokenMissingException.class)
-    public Mono<ResponseEntity<ErrorResponse>> handleJwtTokenMissing(
-            JwtTokenMissingException ex, ServerWebExchange exchange) {
-        ErrorResponse errorResponse = ErrorResponse.of(
-                HttpStatus.UNAUTHORIZED.value(),
-                "Token Missing",
-                ex.getMessage(),
-                exchange.getRequest().getPath().value()
-        );
-
-        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse));
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public Mono<ResponseEntity<ErrorResponse>> handleIllegalArgument(
-            IllegalArgumentException ex, ServerWebExchange exchange) {
-        ErrorResponse errorResponse = ErrorResponse.of(
-                HttpStatus.BAD_REQUEST.value(),
-                "Invalid Request",
-                ex.getMessage(),
-                exchange.getRequest().getPath().value()
-        );
-
-        return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse));
-    }
-
     @ExceptionHandler(RateLimitExceededException.class)
     public Mono<ResponseEntity<ErrorResponse>> handleRateLimitExceeded(
             RateLimitExceededException ex, ServerWebExchange exchange) {
@@ -119,8 +63,8 @@ public class GlobalExceptionHandler {
             Exception ex, ServerWebExchange exchange) {
         ErrorResponse errorResponse = ErrorResponse.of(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "Internal Server Error",
-                "An unexpected error occurred",
+                "Gateway Error",
+                "An error occurred while processing your request",
                 exchange.getRequest().getPath().value()
         );
 
