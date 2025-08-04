@@ -25,12 +25,6 @@ public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<Contex
         return (exchange, chain) -> {
             String path = exchange.getRequest().getPath().value();
 
-            // Skip context enrichment for auth endpoints only
-            if (path.startsWith("/users/auth/") || path.startsWith("/auth/")) {
-                log.debug("Skipping context enrichment for auth endpoint: {}", path);
-                return chain.filter(exchange);
-            }
-
             // Get the validated token from exchange attributes (set by AuthenticationFilter)
             String token = exchange.getAttribute("validated-jwt-token");
             if (token == null) {
