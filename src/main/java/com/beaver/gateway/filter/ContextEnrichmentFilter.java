@@ -28,21 +28,18 @@ public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<Contex
         return (exchange, chain) -> {
             String path = exchange.getRequest().getPath().value();
 
-            // Always add gateway secret for downstream service authentication
             var requestBuilder = exchange.getRequest().mutate();
             requestBuilder.header("X-Gateway-Secret", gatewaySecret);
 
             // Get the validated token from exchange attributes (set by AuthenticationFilter)
             String token = exchange.getAttribute("validated-jwt-token");
             if (token == null) {
-                // No token means authentication was skipped - just add gateway secret and continue
                 log.debug("No validated JWT token found for path: {} - adding gateway secret only", path);
                 var modifiedRequest = requestBuilder.build();
                 var modifiedExchange = exchange.mutate().request(modifiedRequest).build();
                 return chain.filter(modifiedExchange);
             }
 
-            // Extract claims and add user context headers for downstream services
             return Mono.zip(
                 jwtService.extractUserId(token).defaultIfEmpty(""),
                 jwtService.extractWorkspaceId(token).defaultIfEmpty(""),
@@ -52,7 +49,6 @@ public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<Contex
                 String workspaceId = tuple.getT2();
                 Set<String> permissions = tuple.getT3();
 
-                // Add user context headers
                 if (!userId.isEmpty()) {
                     requestBuilder.header("X-User-Id", userId);
                 }
@@ -74,7 +70,6 @@ public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<Contex
                 return chain.filter(modifiedExchange);
             }).onErrorResume(ex -> {
                 log.warn("Failed to extract claims from JWT for path: {}", path, ex);
-                // Continue with just gateway secret on error
                 var modifiedRequest = requestBuilder.build();
                 var modifiedExchange = exchange.mutate().request(modifiedRequest).build();
                 return chain.filter(modifiedExchange);
@@ -82,7 +77,5 @@ public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<Contex
         };
     }
 
-    public static class Config {
-        // Configuration properties can be added here if needed
-    }
+    public static class Config { }
 }

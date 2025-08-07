@@ -13,12 +13,8 @@ spring:
         - id: beaver-identity-auth
           uri: ${beaver.identity.url}
           predicates:
-            - Path=/auth/**
+            - Path=/identity/auth/**
           filters:
-            - name: RewritePath
-              args:
-                regexp: /auth/(.*)
-                replacement: /identity/auth/$\{segment}
             - name: ContextEnrichmentFilter
 
         - id: beaver-identity
