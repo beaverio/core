@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 import reactor.core.publisher.Mono;
 
 import java.util.Set;
@@ -14,10 +15,12 @@ import java.util.Set;
 public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<ContextEnrichmentFilter.Config> {
 
     private final JwtService jwtService;
+    private final String gatewaySecret;
 
-    public ContextEnrichmentFilter(JwtService jwtService) {
+    public ContextEnrichmentFilter(JwtService jwtService, @Value("${gateway.secret}") String gatewaySecret) {
         super(Config.class);
         this.jwtService = jwtService;
+        this.gatewaySecret = gatewaySecret;
     }
 
     @Override
@@ -25,15 +28,21 @@ public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<Contex
         return (exchange, chain) -> {
             String path = exchange.getRequest().getPath().value();
 
+            // Always add gateway secret for downstream service authentication
+            var requestBuilder = exchange.getRequest().mutate();
+            requestBuilder.header("X-Gateway-Secret", gatewaySecret);
+
             // Get the validated token from exchange attributes (set by AuthenticationFilter)
             String token = exchange.getAttribute("validated-jwt-token");
             if (token == null) {
-                // No token means authentication was skipped or failed
-                log.debug("No validated JWT token found for path: {}", path);
-                return chain.filter(exchange);
+                // No token means authentication was skipped - just add gateway secret and continue
+                log.debug("No validated JWT token found for path: {} - adding gateway secret only", path);
+                var modifiedRequest = requestBuilder.build();
+                var modifiedExchange = exchange.mutate().request(modifiedRequest).build();
+                return chain.filter(modifiedExchange);
             }
 
-            // Extract claims and add headers for downstream services
+            // Extract claims and add user context headers for downstream services
             return Mono.zip(
                 jwtService.extractUserId(token).defaultIfEmpty(""),
                 jwtService.extractWorkspaceId(token).defaultIfEmpty(""),
@@ -43,9 +52,7 @@ public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<Contex
                 String workspaceId = tuple.getT2();
                 Set<String> permissions = tuple.getT3();
 
-                // Build the modified request with auth headers
-                var requestBuilder = exchange.getRequest().mutate();
-
+                // Add user context headers
                 if (!userId.isEmpty()) {
                     requestBuilder.header("X-User-Id", userId);
                 }
@@ -67,8 +74,10 @@ public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<Contex
                 return chain.filter(modifiedExchange);
             }).onErrorResume(ex -> {
                 log.warn("Failed to extract claims from JWT for path: {}", path, ex);
-                // Continue without headers rather than failing the request
-                return chain.filter(exchange);
+                // Continue with just gateway secret on error
+                var modifiedRequest = requestBuilder.build();
+                var modifiedExchange = exchange.mutate().request(modifiedRequest).build();
+                return chain.filter(modifiedExchange);
             });
         };
     }

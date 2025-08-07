@@ -45,7 +45,7 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
         return ((exchange, chain) -> {
             String path = exchange.getRequest().getPath().value();
 
-            if (path.startsWith("/users/auth/") || path.startsWith("/auth/")) {
+            if (path.startsWith("/identity/auth/") || path.startsWith("/auth/")) {
                 log.debug("Skipping authentication for auth endpoint: {}", path);
                 return chain.filter(exchange);
             }

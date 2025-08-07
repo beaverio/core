@@ -15,25 +15,19 @@ spring:
           predicates:
             - Path=/auth/**
           filters:
-            - name: AddRequestHeader
+            - name: RewritePath
               args:
-                name: X-Gateway-Secret
-                value: ${gateway.secret}
+                regexp: /auth/(.*)
+                replacement: /identity/auth/$\{segment}
+            - name: ContextEnrichmentFilter
 
         - id: beaver-identity
           uri: ${beaver.identity.url}
           predicates:
-            - Path=/users/**
+            - Path=/identity/**
           filters:
-            - AuthenticationFilter
-            - ContextEnrichmentFilter
-            - name: StripPrefix
-              args:
-                parts: 1
-            - name: AddRequestHeader
-              args:
-                name: X-Gateway-Secret
-                value: ${gateway.secret}
+            - name: AuthenticationFilter
+            - name: ContextEnrichmentFilter
 
 logging:
   level:
