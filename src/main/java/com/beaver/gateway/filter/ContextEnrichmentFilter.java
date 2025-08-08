@@ -8,8 +8,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Value;
 import reactor.core.publisher.Mono;
 
-import java.util.Set;
-
 @Slf4j
 @Component
 public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<ContextEnrichmentFilter.Config> {
@@ -43,11 +41,11 @@ public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<Contex
             return Mono.zip(
                 jwtService.extractUserId(token).defaultIfEmpty(""),
                 jwtService.extractWorkspaceId(token).defaultIfEmpty(""),
-                jwtService.extractPermissions(token).defaultIfEmpty(Set.of())
+                jwtService.extractRole(token).defaultIfEmpty("")
             ).flatMap(tuple -> {
                 String userId = tuple.getT1();
                 String workspaceId = tuple.getT2();
-                Set<String> permissions = tuple.getT3();
+                String role = tuple.getT3();
 
                 if (!userId.isEmpty()) {
                     requestBuilder.header("X-User-Id", userId);
@@ -57,15 +55,15 @@ public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<Contex
                     requestBuilder.header("X-Workspace-Id", workspaceId);
                 }
 
-                if (!permissions.isEmpty()) {
-                    requestBuilder.header("X-User-Permissions", String.join(",", permissions));
+                if (!role.isEmpty()) {
+                    requestBuilder.header("X-User-Role", role);
                 }
 
                 var modifiedRequest = requestBuilder.build();
                 var modifiedExchange = exchange.mutate().request(modifiedRequest).build();
 
-                log.debug("Added auth headers for user {} in workspace {} for path: {}",
-                         userId, workspaceId, path);
+                log.debug("Added auth headers for user {} in workspace {} with role {} for path: {}",
+                         userId, workspaceId, role, path);
 
                 return chain.filter(modifiedExchange);
             }).onErrorResume(ex -> {
