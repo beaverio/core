@@ -30,7 +30,7 @@ public class ContextEnrichmentFilter extends AbstractGatewayFilterFactory<Contex
             requestBuilder.header("X-Gateway-Secret", gatewaySecret);
 
             // Get the validated token from exchange attributes (set by AuthenticationFilter)
-            String token = exchange.getAttribute("validated-jwt-token");
+            String token = exchange.getAttribute("validated-access-token");
             if (token == null) {
                 log.debug("No validated JWT token found for path: {} - adding gateway secret only", path);
                 var modifiedRequest = requestBuilder.build();

@@ -62,7 +62,7 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                     .flatMap(isValid -> {
                         if (isValid) {
                             // Add the validated token to exchange attributes for downstream filters
-                            exchange.getAttributes().put("validated-jwt-token", token);
+                            exchange.getAttributes().put("validated-access-token", token);
                             return chain.filter(exchange);
                         } else {
                             log.debug("JWT token validation failed for request to: {}", path);
