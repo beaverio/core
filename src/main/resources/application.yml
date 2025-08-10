@@ -15,6 +15,7 @@ spring:
           predicates:
             - Path=/identity/auth/**
           filters:
+            # TODO: LoggingFilter
             - name: ContextEnrichmentFilter
 
         - id: beaver-identity
@@ -22,6 +23,7 @@ spring:
           predicates:
             - Path=/identity/**
           filters:
+            # TODO: LoggingFilter
             - name: AuthenticationFilter
             - name: ContextEnrichmentFilter
 
@@ -38,7 +40,7 @@ jwt:
   authDisabled: false
 
 gateway:
-  secret: ${GATEWAY_SECRET}
+  secret: ${GATEWAY_SECRET}..+
 
 # Downstream Services
 beaver:
